@@ -1,0 +1,167 @@
+/* Login Page Styles */
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--bg-main);
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 20px 20px;
+    padding: 2rem;
+    gap: 2rem;
+}
+
+/* 1. App Header Section */
+.login-app-header {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Static Logo Container (Mimics Sidebar) */
+.logo-container-static .logo-image {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+}
+
+.logo-container-static {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    background: rgba(0, 0, 0, 0.05);
+    /* Light background for contrast on login page */
+    border: 1px solid var(--border);
+    backdrop-filter: blur(4px);
+}
+
+.logo-text-static {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    font-family: 'Poppins', sans-serif;
+    color: var(--primary);
+    filter: none;
+}
+
+@keyframes gradient-flow {
+    to {
+        background-position: 200% center;
+    }
+}
+
+/* 2. Main Content Centered */
+.login-content-centered {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Login Card */
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 2.5rem;
+    border-radius: 1rem;
+    background: var(--bg-card);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border);
+}
+
+.login-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+/* Store Name Header */
+.store-name-header {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0 0 0.5rem 0;
+    line-height: 1.2;
+}
+
+/* Store Logo Inside Card */
+.store-logo-wrapper {
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.store-logo-in-card {
+    width: 200px !important;
+    object-fit: contain;
+}
+
+.login-title {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin: 0;
+}
+
+.login-error {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.form-group-mb {
+    margin-bottom: 1.25rem;
+}
+
+.form-group-lg-mb {
+    margin-bottom: 2rem;
+}
+
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrapper input {
+    margin-bottom: 0;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle-btn:hover {
+    color: var(--text-main);
+}
+
+.btn-full-width {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    justify-content: center;
+}

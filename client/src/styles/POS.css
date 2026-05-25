@@ -1,0 +1,903 @@
+/* =========================================
+   POS Layout Structure
+   ========================================= */
+.pos-wrapper {
+    display: flex;
+    justify-content: flex-start;
+    height: 100%;
+    width: 100vw;
+    /* Force full viewport width to overcome parent constraints */
+    max-width: 100%;
+    background: var(--bg-main);
+    overflow: hidden;
+    gap: 0.5rem;
+    box-sizing: border-box;
+}
+
+.pos-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
+    overflow: hidden;
+    min-width: 0;
+    /* Allow shrinking if needed, but flex:1 should grow */
+    max-height: 100%;
+}
+
+/* ... right panel ... */
+
+
+.pos-right {
+    /* margin-right: 0.5rem; */
+    width: 380px;
+    flex: none;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 0 0.5rem;
+}
+
+/* Common Card Style */
+.pos-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* =========================================
+    Top Bar & Search
+    ========================================= */
+.pos-top-bar {
+    display: flex;
+    margin-bottom: 0.5rem;
+    align-items: center;
+    justify-content: flex-start;
+    /* Align start to keep search small */
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.pos-search-container {
+    position: relative;
+    flex: 0 1 300px;
+    /* Don't grow indefinitely, base 300px */
+    min-width: 200px;
+}
+
+/* ... search icon ... */
+.pos-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    width: 20px;
+}
+
+.pos-search-input {
+    width: 100%;
+    padding: 0.4rem 1rem 0.4rem 2.2rem;
+    /* Compact padding */
+    background: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.pos-search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.pos-btn-icon-text {
+    background: var(--bg-main);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.75rem;
+    /* Compact padding */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+
+
+.pos-btn-icon-text:hover {
+    background: var(--bg-sub);
+}
+
+.bill-number-badge {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-main);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    white-space: nowrap;
+}
+
+.held-count-badge {
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+/* =========================================
+    Cart Table
+    ========================================= */
+.pos-table-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    /* Enable horizontal scroll */
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+    /* For watermark */
+}
+
+/* Watermark & Background Logo */
+.pos-background-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    pointer-events: none;
+    z-index: 5;
+    width: 400px !important;
+    height: 400px !important;
+    opacity: 0.1 !important;
+}
+
+/* Split View Tables */
+.pos-table-area {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.pos-table-area.split-view-active {
+    flex-direction: column;
+    /* Stack top-down */
+    gap: 0.5rem;
+}
+
+.pos-table-area.split-view-active .pos-table-container {
+    flex: 1;
+    width: 100%;
+    /* Full width */
+    max-width: 100%;
+    max-height: 50%;
+    /* Half height each */
+}
+
+.pos-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+    table-layout: fixed;
+    min-width: 600px;
+    /* Ensure minimum width to prevent crushing */
+    position: relative;
+    z-index: 1;
+}
+
+/* If screen is big, allow auto-layout or fixed %? 
+   With table-layout: fixed, we must define widths.
+*/
+
+.pos-table th {
+    background: var(--bg-sub);
+    padding: 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+/* === SALE TABLE COLUMNS (9 Columns) === */
+/* S.No is inline 50px */
+/* Barcode: nth-child(2) */
+.pos-table:not(.return-table) th:nth-child(2),
+.pos-table:not(.return-table) td:nth-child(2) {
+    width: 15%;
+}
+
+/* Name: nth-child(3) */
+.pos-table:not(.return-table) th:nth-child(3),
+.pos-table:not(.return-table) td:nth-child(3) {
+    width: 25%;
+}
+
+/* Price: nth-child(4) */
+.pos-table:not(.return-table) th:nth-child(4),
+.pos-table:not(.return-table) td:nth-child(4) {
+    width: 10%;
+}
+
+/* Qty: nth-child(5) */
+.pos-table:not(.return-table) th:nth-child(5),
+.pos-table:not(.return-table) td:nth-child(5) {
+    width: 12%;
+}
+
+/* Disc % (Inline 90px), Disc Rs (Inline 90px) */
+/* nth-child(6), (7) -- Inline styles handle these mostly, but let's ensure text visibility */
+
+/* Total: nth-child(8) */
+.pos-table:not(.return-table) th:nth-child(8),
+.pos-table:not(.return-table) td:nth-child(8) {
+    width: 10%;
+    font-weight: bold;
+}
+
+/* Trash (Inline 50px) nth-child(9) */
+
+
+.pos-table td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: middle;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* === RETURN TABLE COLUMNS (4 Columns) === */
+.return-table {
+    min-width: 100% !important;
+    table-layout: auto !important;
+}
+
+.return-table th:nth-child(1),
+.return-table td:nth-child(1) {
+    width: 45%;
+}
+
+/* Item */
+.return-table th:nth-child(2),
+.return-table td:nth-child(2) {
+    width: 25%;
+}
+
+/* Qty */
+.return-table th:nth-child(3),
+.return-table td:nth-child(3) {
+    width: 20%;
+}
+
+/* Refund */
+.return-table th:nth-child(4),
+.return-table td:nth-child(4) {
+    width: 10%;
+}
+
+/* Action */
+
+
+.pos-quantity-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: flex-start;
+}
+
+.pos-action-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-main);
+    cursor: pointer;
+    color: var(--text-main);
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.pos-action-btn:hover {
+    background: var(--bg-sub);
+    border-color: var(--primary);
+}
+
+.pos-action-btn-red {
+    color: #ef4444;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.pos-action-btn-red:hover {
+    background: #fee2e2;
+    border-color: #ef4444;
+}
+
+.pos-table-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-card);
+    border-top: 2px solid var(--border);
+    z-index: 10;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.pos-table-footer td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+/* =========================================
+    Right Panel: Customer Accordion
+    ========================================= */
+.customer-section {
+    flex: 0 0 auto;
+    height: auto;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+}
+
+.customer-section.expanded {
+    flex: 1;
+    height: 100%;
+    margin-bottom: 0;
+    overflow-y: auto;
+}
+
+.customer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.customer-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.customer-icon {
+    background: var(--bg-input);
+    color: var(--text-muted);
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.customer-icon.active {
+    background: var(--primary);
+    color: white;
+}
+
+.customer-actions-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    justify-content: flex-end;
+}
+
+.customer-search-wrapper {
+    position: relative;
+    margin-bottom: 0.5rem;
+}
+
+.customer-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.customer-result-item {
+    padding: 8px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+}
+
+.customer-result-item:hover {
+    background: var(--bg-sub);
+}
+
+.customer-details-box {
+    font-size: 0.9rem;
+    position: relative;
+    margin-top: 0.5rem;
+}
+
+.customer-clear-btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    color: #ef4444;
+    border: 1px solid #fee2e2;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* =========================================
+    Right Panel: Summary & Checkout
+    ========================================= */
+.checkout-section {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.pos-summary-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+}
+
+.stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-box {
+    flex: 1;
+    background: var(--bg-main);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    min-width: 80px;
+    text-align: center;
+}
+
+.pos-summary-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.pos-summary-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.pos-summary-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.global-discount-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pos-total-box {
+    margin-top: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #fff1f2;
+    border-radius: 0.5rem;
+    border: 1px solid #ffe4e6;
+    color: #881337;
+    text-align: right;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+[data-theme='dark'] .pos-total-box {
+    background: #1e1b4b;
+    border-color: #312e81;
+    color: #e0e7ff;
+}
+
+.payment-methods-grid {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.pos-pay-btn {
+    padding: 0.5rem;
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 60px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.pos-pay-btn.selected {
+    background: rgba(225, 29, 72, 0.1);
+    color: var(--primary);
+    border-color: var(--primary);
+    font-weight: 600;
+}
+
+.checkout-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+/* =========================================
+   Return / Exchange Mode
+   ========================================= */
+
+.btn-active-return {
+    background: #fef2f2;
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+.scan-mode-switch {
+    display: flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.scan-switch-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.scan-switch-btn:hover {
+    background: var(--bg-sub);
+}
+
+.scan-switch-btn.active-red {
+    background: #ef4444;
+    color: white;
+}
+
+.scan-switch-btn.active-green {
+    background: var(--primary);
+    color: white;
+}
+
+.return-cart-container {
+    border-color: #fecaca;
+    background: #fff8f8;
+}
+
+[data-theme='dark'] .return-cart-container {
+    background: #2a1b1b;
+    border-color: #451a1a;
+}
+
+.return-header-bar {
+    padding: 0.5rem;
+    background: #fee2e2;
+    border-bottom: 1px solid #fecaca;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #991b1b;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+[data-theme='dark'] .return-header-bar {
+    background: #451a1a;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+}
+
+.input-return-mode {
+    border-color: #ef4444 !important;
+    background: #fff5f5 !important;
+}
+
+[data-theme='dark'] .input-return-mode {
+    background: #2a1b1b !important;
+}
+
+/* Common Modal */
+.pos-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.pos-modal-content {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.held-bills-modal {
+    width: 500px;
+}
+
+.edit-customer-modal {
+    width: 400px;
+}
+
+/* POS Discount Section */
+.pos-discount-input {
+    width: 70px;
+    padding: 6px 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: #fff1f2;
+    /* Light Rose */
+    border: 1px solid #fda4af;
+    color: #be123c;
+    border-radius: 6px;
+    outline: none;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.pos-discount-input:focus {
+    background: #ffffff;
+    border-color: #e11d48;
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2);
+}
+
+[data-theme='dark'] .pos-discount-input {
+    background: #1e1b4b;
+    border-color: #4338ca;
+    color: #e0e7ff;
+}
+
+.discount-toggle-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    height: 32px;
+}
+
+.discount-toggle-btn {
+    padding: 0 10px;
+    border: none;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.discount-toggle-btn:hover {
+    background: var(--bg-sub);
+}
+
+.discount-toggle-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Table Inputs */
+.pos-item-discount-input {
+    width: 60px;
+    padding: 4px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-main);
+    border-radius: 4px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.pos-item-discount-input:focus {
+    border-color: var(--primary);
+    background: var(--bg-main);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.pos-manual-input {
+    width: 100%;
+    padding: 4px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-main);
+    border-radius: 4px;
+}
+
+.pos-manual-input:focus {
+    border-color: var(--primary);
+    background: var(--bg-main);
+}
+
+/* Helper Classes extracted from inline styles */
+.pos-table-col-sno {
+    width: 50px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.pos-table-col-disc {
+    width: 90px;
+}
+
+.pos-table-col-empty {
+    width: 50px;
+}
+
+.pos-barcode-text {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+}
+
+.pos-item-name {
+    font-weight: 500;
+}
+
+.pos-input-price {
+    width: 80px;
+}
+
+.pos-qty-display {
+    min-width: 20px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.pos-bill-id {
+    color: var(--text-main);
+}
+
+
+/* Left Panel Summary Box */
+.pos-left-summary {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    /* background: var(--bg-sub); */
+    border-top: 1px solid var(--border);
+}
+
+.pos-summary-box {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pos-summary-box .pos-summary-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.25rem;
+}
+
+.pos-summary-box .pos-summary-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* Empty Cart State */
+.empty-cart-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    gap: 1rem;
+    color: var(--text-muted);
+}
+
+.empty-cart-state svg {
+    color: var(--text-muted);
+    opacity: 0.3 !important;
+    /* Force opacity override if inline style persists */
+    width: 64px;
+    height: 64px;
+}
+
+.empty-cart-state span {
+    font-size: 1rem;
+    font-weight: 500;
+}

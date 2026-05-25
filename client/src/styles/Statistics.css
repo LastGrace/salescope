@@ -1,0 +1,451 @@
+/* Statistics.css — Styles specific to the Statistics page */
+/* NOTE: Dashboard.css provides base styles (section titles, loading-line, etc.) */
+/* This file only contains Statistics-specific overrides and additions */
+
+/* --- Layout (Overrides dashboard-container hidden overflow) --- */
+.statistics-page {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    padding-bottom: 3rem !important;
+}
+
+/* ===== Stats Grid ===== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    height: auto;
+}
+
+@media (min-width: 1024px) {
+    .charts-grid {
+        grid-template-columns: 3.5fr 1fr;
+        height: 500px;
+    }
+}
+
+.widgets-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    height: auto;
+}
+
+@media (min-width: 1280px) {
+    .widgets-grid {
+        grid-template-columns: 1fr 1fr;
+        height: 400px;
+    }
+}
+
+/* --- Cards --- */
+.dashboard-card {
+    background-color: var(--bg-card);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+/* --- Stat Cards --- */
+.stat-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.08);
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+}
+
+.stat-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+.card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.card-title-lg {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 1rem;
+}
+
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.2;
+}
+
+.kpi-icon-wrapper {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Color Variants */
+.theme-blue {
+    background-color: var(--bg-main);
+    color: var(--primary);
+}
+
+.theme-green {
+    background-color: #f0fdf4;
+    color: #22c55e;
+}
+
+.theme-orange {
+    background-color: #fff7ed;
+    color: #f97316;
+}
+
+.theme-purple {
+    background-color: #faf5ff;
+    color: #a855f7;
+}
+
+.theme-red {
+    background-color: #fef2f2;
+    color: #ef4444;
+}
+
+.theme-cyan {
+    background-color: #ecfeff;
+    color: #06b6d4;
+}
+
+.theme-indigo {
+    background-color: #eef2ff;
+    color: #6366f1;
+}
+
+.text-green {
+    color: #22c55e;
+}
+
+.text-red {
+    color: #ef4444;
+}
+
+.text-orange {
+    color: #f97316;
+}
+
+/* Tables */
+.products-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.products-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-bottom: 0.75rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+}
+
+.products-table td {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.products-table tr:last-child td {
+    border-bottom: none;
+}
+
+.products-table .val-right {
+    text-align: right;
+}
+
+.products-table .text-dark {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+/* Utilities */
+.badge-danger {
+    background-color: #fef2f2;
+    color: #ef4444;
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+}
+
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+.mr-1 {
+    margin-right: 0.25rem;
+}
+
+.m-0 {
+    margin: 0;
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--bg-main);
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Loading / Empty States */
+.state-empty {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Tabs */
+.stats-tabs-container {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.stats-tab {
+    padding: 0.6rem 1.25rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    border-radius: 4px 4px 0 0;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.stats-tab:hover {
+    color: var(--primary);
+}
+
+.stats-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background-color: var(--bg-card);
+}
+
+/* Custom Range Card */
+.custom-range-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+}
+
+.custom-range-header {
+    margin-bottom: 1.25rem;
+}
+
+.custom-range-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.custom-range-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.date-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.date-input-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* grid-cols-2 for widgets */
+.grid-cols-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    height: 100%;
+}
+
+@media (max-width: 1024px) {
+    .grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Today's Activity Pulse Specific Grids --- */
+.today-activity-wrapper {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.today-pulse-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.today-pulse-grid-top {
+    grid-template-columns: 1fr;
+    margin-bottom: 1.5rem;
+}
+
+.today-pulse-grid-bottom {
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+    .today-pulse-grid-top {
+        grid-template-columns: 2fr 1fr;
+    }
+
+    .today-pulse-grid-bottom {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .today-pulse-span-2 {
+        grid-column: span 2;
+    }
+}

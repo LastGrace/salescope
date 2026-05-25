@@ -1,0 +1,760 @@
+/* ViewBillModal.css - Premium Thermal Receipt Styling */
+
+/* ===== Modal Overlay ===== */
+.bill-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 40, 0.8));
+    display: grid;
+    place-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* ===== Receipt Wrapper (Outer Container) ===== */
+.bill-modal-wrapper {
+    width: 400px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.92);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ===== Torn Paper Edge (Top) ===== */
+.bill-torn-edge-top {
+    height: 14px;
+    background: #ffffff;
+    width: 100%;
+    clip-path: polygon(0% 100%, 2% 40%, 4% 100%, 6% 30%, 8% 100%, 10% 50%, 12% 100%, 14% 20%, 16% 100%, 18% 60%,
+            20% 100%, 22% 40%, 24% 100%, 26% 30%, 28% 100%, 30% 50%, 32% 100%, 34% 20%, 36% 100%, 38% 60%,
+            40% 100%, 42% 40%, 44% 100%, 46% 30%, 48% 100%, 50% 50%, 52% 100%, 54% 20%, 56% 100%, 58% 60%,
+            60% 100%, 62% 40%, 64% 100%, 66% 30%, 68% 100%, 70% 50%, 72% 100%, 74% 20%, 76% 100%, 78% 60%,
+            80% 100%, 82% 40%, 84% 100%, 86% 30%, 88% 100%, 90% 50%, 92% 100%, 94% 20%, 96% 100%, 98% 60%, 100% 100%);
+}
+
+/* ===== Main Receipt Paper ===== */
+.bill-receipt {
+    background: #ffffff;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #d4a574 transparent;
+    position: relative;
+}
+
+
+.bill-receipt::-webkit-scrollbar {
+    width: 8px;
+}
+
+.bill-receipt::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.bill-receipt::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #d4a574, #c49464);
+    border-radius: 4px;
+}
+
+/* ===== Receipt Content ===== */
+.bill-content {
+    padding: 24px 28px;
+    color: #1a1a1a;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* ===== Store Header ===== */
+.bill-store-header {
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 3px double #d4a574;
+    margin-bottom: 18px;
+    position: relative;
+}
+
+.bill-store-header::after {
+    content: '★ ★ ★';
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffffff;
+    padding: 0 12px;
+    color: #d4a574;
+    font-size: 10px;
+    letter-spacing: 4px;
+}
+
+.bill-store-name {
+    font-size: 28px;
+    font-weight: 900;
+    color: #dc2626;
+    margin: 0 0 10px 0;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-family: 'Arial Black', 'Helvetica Neue', sans-serif;
+}
+
+
+.bill-store-address {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 8px;
+}
+
+.bill-store-contact {
+    font-size: 12px;
+    font-weight: 700;
+    color: #444;
+    background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.2), transparent);
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* ===== Invoice Meta Info ===== */
+.bill-meta-section {
+    background: linear-gradient(135deg, rgba(212, 165, 116, 0.1), rgba(212, 165, 116, 0.05));
+    border: 1px solid rgba(212, 165, 116, 0.3);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 16px 0;
+}
+
+.bill-meta-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.bill-meta-row:last-child {
+    margin-bottom: 0;
+}
+
+.bill-meta-label {
+    color: #8B4513;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+
+.bill-meta-value {
+    font-weight: 800;
+    color: #1a1a1a;
+}
+
+/* ===== Items Table ===== */
+.bill-table-header {
+    display: grid;
+    grid-template-columns: 2.5fr 1fr 0.8fr 0.6fr 1fr;
+    padding: 12px 0;
+    border-top: 2px solid #333;
+    border-bottom: 2px solid #333;
+    font-weight: 900;
+    color: #1a1a1a;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.03), transparent);
+}
+
+.bill-table-header>div:not(:first-child) {
+    text-align: right;
+}
+
+.bill-items-container {
+    padding: 10px 0;
+    min-height: 60px;
+}
+
+.bill-item-row {
+    display: grid;
+    grid-template-columns: 2.5fr 1fr 0.8fr 0.6fr 1fr;
+    padding: 10px 8px;
+    font-weight: 600;
+    font-size: 12px;
+    border-bottom: 1px dashed #ddd;
+    margin: 0 -8px;
+    transition: background 0.2s ease;
+}
+
+.bill-item-row:hover {
+    background: rgba(212, 165, 116, 0.08);
+}
+
+.bill-item-row:last-child {
+    border-bottom: none;
+}
+
+.bill-item-row>div:not(:first-child) {
+    text-align: right;
+}
+
+.bill-item-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 10px;
+    font-weight: 700;
+}
+
+/* ===== Bill Summary Container ===== */
+.bill-summary-container {
+    padding: 8px 0;
+    border-top: 2px solid #333;
+    margin-top: 0;
+}
+
+/* Items Totals Row - aligned with table columns */
+.bill-items-totals-row {
+    display: grid;
+    grid-template-columns: 2.5fr 1fr 0.8fr 0.6fr 1fr;
+    padding: 10px 8px;
+    font-weight: 800;
+    font-size: 12px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.03), transparent);
+    margin: 0 -8px;
+    border-bottom: 1px dashed #ccc;
+}
+
+.bill-items-totals-row>div:not(:first-child) {
+    text-align: right;
+}
+
+.bill-totals-label {
+    font-weight: 900;
+    color: #1a1a1a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bill-summary-left {
+    font-weight: 600;
+}
+
+.bill-summary-right {
+    font-weight: 600;
+    text-align: right;
+}
+
+.bill-summary-row-split strong {
+    font-weight: 800;
+    color: #1a1a1a;
+}
+
+/* Discount Row */
+.bill-discount-row {
+    background: rgba(220, 38, 38, 0.05);
+    margin: 0 -12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+/* Discount breakdown on left side */
+.bill-discount-breakdown {
+    display: flex;
+    gap: 4px;
+    font-size: 11px;
+    color: #666;
+    font-weight: 500;
+}
+
+.bill-discount-breakdown span {
+    color: #dc2626;
+}
+
+/* Right-aligned discount rows */
+.bill-summary-row-right {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 0;
+    font-size: 12px;
+    color: #555;
+    border-bottom: 1px dashed #eee;
+}
+
+.bill-summary-row-right span {
+    font-weight: 600;
+}
+
+/* Discount text in red */
+.bill-discount-red {
+    color: #dc2626;
+    font-weight: 800;
+    font-family: 'Courier New', monospace;
+}
+
+/* Coupon highlight */
+.bill-coupon-highlight {
+    background: rgba(245, 158, 11, 0.08);
+    margin: 0 -12px;
+    padding: 6px 12px;
+    color: #b45309;
+}
+
+/* Loyalty highlight */
+.bill-loyalty-highlight {
+    background: rgba(234, 179, 8, 0.08);
+    margin: 0 -12px;
+    padding: 6px 12px;
+    color: #a16207;
+}
+
+/* Credit Note highlight */
+.bill-credit-highlight {
+    background: rgba(16, 185, 129, 0.08);
+    margin: 0 -12px;
+    padding: 6px 12px;
+    color: #047857;
+}
+
+/* Other Discount highlight (combined: coupon + loyalty + credit note) */
+.bill-other-discount-highlight {
+    background: rgba(168, 85, 247, 0.1);
+    margin: 0 -12px;
+    padding: 8px 12px;
+    color: #7c3aed;
+    font-weight: 600;
+    border-radius: 4px 4px 0 0;
+}
+
+/* Breakdown of Other Discount (coupon, loyalty, credit note) */
+.bill-other-discount-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0 -12px;
+    padding: 8px 12px;
+    background: rgba(168, 85, 247, 0.06);
+    border-radius: 4px;
+    font-size: 11px;
+    color: #6b21a8;
+}
+
+.bill-other-discount-breakdown span {
+    display: flex;
+    justify-content: flex-end;
+    font-weight: 600;
+}
+
+/* Divider before Total */
+.bill-total-divider {
+    height: 2px;
+    background: #333;
+    margin: 10px 0;
+}
+
+/* Final Total Row */
+.bill-final-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 18px;
+    font-weight: 900;
+    color: #1a1a1a;
+    letter-spacing: 1px;
+}
+
+.bill-final-amount {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1a1a1a;
+    font-family: 'Courier New', monospace;
+}
+
+/* ===== Totals Section ===== */
+.bill-totals-section {
+    padding: 14px 0;
+    border-top: 2px solid #333;
+    margin-top: 8px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.02), transparent);
+}
+
+.bill-totals-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.bill-totals-row:last-child {
+    margin-bottom: 0;
+}
+
+.bill-grand-total {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1a1a1a;
+    background: linear-gradient(90deg, rgba(212, 165, 116, 0.15), transparent);
+    padding: 12px 16px;
+    margin: 0 -16px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+}
+
+.bill-qty-total {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ===== Savings Highlight ===== */
+.bill-savings-box {
+    text-align: center;
+    margin: 20px 0;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0, #86efac);
+    border: 2px solid #22c55e;
+    border-radius: 12px;
+    box-shadow:
+        0 4px 15px rgba(34, 197, 94, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.bill-savings-box::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% {
+        transform: translateX(-100%) rotate(45deg);
+    }
+
+    100% {
+        transform: translateX(100%) rotate(45deg);
+    }
+}
+
+.bill-savings-label {
+    font-size: 13px;
+    color: #15803d;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.bill-savings-amount {
+    font-size: 28px;
+    font-weight: 900;
+    color: #15803d;
+    text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.bill-savings-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 10px;
+    color: #166534;
+}
+
+.bill-savings-breakdown span {
+    background: rgba(255, 255, 255, 0.5);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* ===== Payments Section ===== */
+.bill-payments-section {
+    padding: 16px;
+    margin: 16px -16px;
+    background: linear-gradient(135deg, rgba(212, 165, 116, 0.08), rgba(212, 165, 116, 0.04));
+    border-radius: 8px;
+}
+
+.bill-payment-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 12px;
+    padding: 4px 0;
+}
+
+.bill-payment-method {
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #666;
+    letter-spacing: 0.5px;
+}
+
+.bill-payment-amount {
+    font-weight: 800;
+    color: #1a1a1a;
+}
+
+/* ===== Footer ===== */
+.bill-footer {
+    text-align: center;
+    padding: 24px 0 16px;
+    border-top: 2px dashed #d4a574;
+    margin-top: 16px;
+}
+
+.bill-barcode-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+    padding: 8px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.bill-barcode-container svg {
+    max-width: 100%;
+}
+
+.bill-qr-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 16px 0;
+}
+
+.bill-qr-container svg {
+    padding: 10px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100px !important;
+    height: 100px !important;
+}
+
+.bill-qr-label {
+    font-size: 10px;
+    color: #888;
+    margin-top: 10px;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.bill-qr-label::before {
+    content: '📸';
+}
+
+.bill-thank-you {
+    font-size: 16px;
+    font-weight: 800;
+    color: #2563eb;
+    font-style: italic;
+    margin-top: 12px;
+    letter-spacing: 1px;
+}
+
+.bill-sub-message {
+    font-size: 10px;
+    color: #999;
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* ===== Torn Paper Edge (Bottom) ===== */
+.bill-torn-edge-bottom {
+    height: 14px;
+    background: linear-gradient(0deg, #fffef8, #fff9e6);
+    width: 100%;
+    clip-path: polygon(0% 0%, 2% 60%, 4% 0%, 6% 70%, 8% 0%, 10% 50%, 12% 0%, 14% 80%, 16% 0%, 18% 40%,
+            20% 0%, 22% 60%, 24% 0%, 26% 70%, 28% 0%, 30% 50%, 32% 0%, 34% 80%, 36% 0%, 38% 40%,
+            40% 0%, 42% 60%, 44% 0%, 46% 70%, 48% 0%, 50% 50%, 52% 0%, 54% 80%, 56% 0%, 58% 40%,
+            60% 0%, 62% 60%, 64% 0%, 66% 70%, 68% 0%, 70% 50%, 72% 0%, 74% 80%, 76% 0%, 78% 40%,
+            80% 0%, 82% 60%, 84% 0%, 86% 70%, 88% 0%, 90% 50%, 92% 0%, 94% 80%, 96% 0%, 98% 40%, 100% 0%);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* ===== Action Buttons Footer ===== */
+.bill-actions-footer {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    border-radius: 0 0 16px 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.bill-actions-footer .btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font-weight: 700;
+    border-radius: 10px;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bill-actions-footer .btn:hover {
+    transform: translateY(-3px);
+}
+
+.bill-actions-footer .btn:active {
+    transform: translateY(-1px);
+}
+
+.bill-btn-close {
+    background: linear-gradient(135deg, #475569, #334155);
+    border: 1px solid #64748b;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.bill-btn-close:hover {
+    background: linear-gradient(135deg, #64748b, #475569);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.bill-btn-whatsapp {
+    background: linear-gradient(135deg, #25D366, #128C7E) !important;
+    border: none !important;
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+}
+
+.bill-btn-whatsapp:hover {
+    background: linear-gradient(135deg, #2be573, #25D366) !important;
+    box-shadow: 0 6px 25px rgba(37, 211, 102, 0.5);
+}
+
+.bill-btn-print {
+    background: linear-gradient(135deg, #6366f1, #4f46e5, #7c3aed);
+    border: none;
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+}
+
+.bill-btn-print:hover {
+    background: linear-gradient(135deg, #818cf8, #6366f1, #8b5cf6);
+    box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 480px) {
+    .bill-modal-wrapper {
+        width: 95vw;
+    }
+
+    .bill-content {
+        padding: 18px 20px;
+        font-size: 11px;
+    }
+
+    .bill-store-name {
+        font-size: 22px;
+    }
+
+    .bill-table-header,
+    .bill-item-row {
+        font-size: 10px;
+    }
+
+    .bill-grand-total {
+        font-size: 16px;
+    }
+
+    .bill-actions-footer {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .bill-actions-footer .btn {
+        padding: 10px 16px;
+        font-size: 11px;
+    }
+}
+
+/* ===== Print Styles ===== */
+@media print {
+    .bill-modal-overlay {
+        position: static;
+        background: none;
+        backdrop-filter: none;
+    }
+
+    .bill-actions-footer {
+        display: none;
+    }
+
+    .bill-torn-edge-top,
+    .bill-torn-edge-bottom {
+        display: none;
+    }
+
+    .bill-footer {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .qr-code-wrapper {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        display: inline-block;
+    }
+}
+
+.bill-logo-img {
+    object-fit: contain;
+    margin-bottom: 0.5rem;
+}
+
+.whitespace-pre-line {
+    white-space: pre-line;
+}
+
+.bill-payment-header {
+    font-weight: 700;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: #555;
+    text-transform: uppercase;
+}

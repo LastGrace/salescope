@@ -1,0 +1,167 @@
+/* Employee Form Styles */
+
+.employee-form-container {
+    padding: 1.5rem;
+    max-width: 800px;
+    /* max-w-2xl is ~672px, checking layout preference */
+    margin: 0 auto;
+}
+
+.employee-form-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    /* gap-4 */
+    margin-bottom: 1.5rem;
+    /* mb-6 */
+}
+
+.header-title {
+    font-size: 1.5rem;
+    /* text-2xl */
+    font-weight: 700;
+    /* font-bold */
+}
+
+.back-btn {
+    padding: 0.5rem;
+    /* p-2 */
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+
+.back-btn:hover {
+    color: var(--text-main);
+}
+
+.employee-form-card {
+    background: var(--bg-card);
+    /* bg-white equivalent */
+    border-radius: 0.5rem;
+    /* rounded-lg */
+    padding: 1.5rem;
+    /* p-6 */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    /* shadow */
+    border: 1px solid var(--border);
+}
+
+.form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    /* space-y-4 */
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* grid-cols-2 */
+    gap: 1rem;
+    /* gap-4 */
+}
+
+.form-grid-1 {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* grid-cols-1 */
+    gap: 1rem;
+    /* gap-4 */
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* gap-2 */
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.checkbox-input {
+    width: 1.25rem;
+    /* w-5 */
+    height: 1.25rem;
+    /* h-5 */
+    accent-color: var(--primary);
+}
+
+.error-text {
+    font-size: 0.75rem;
+    /* text-xs */
+    color: #ef4444;
+    /* text-red-500 */
+    margin-top: 0.25rem;
+    /* mt-1 */
+}
+
+.permissions-box {
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    /* rounded-lg */
+    padding: 1rem;
+    /* p-4 */
+    background-color: var(--bg-main);
+    /* bg-gray-50 equivalent */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.permissions-info h3 {
+    font-weight: 500;
+    /* font-medium */
+    margin: 0;
+}
+
+.permissions-info p {
+    font-size: 0.875rem;
+    /* text-sm */
+    color: var(--text-muted);
+    /* text-gray-500 */
+    margin-top: 0.25rem;
+}
+
+.btn-secondary-flex {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary-flex:hover {
+    background-color: var(--bg-hover);
+}
+
+.submit-section {
+    padding-top: 1rem;
+    /* pt-4 */
+}
+
+.submit-btn-full {
+    width: 100%;
+    /* w-full */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    /* gap-2 */
+}

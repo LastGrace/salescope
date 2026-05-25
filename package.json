@@ -1,0 +1,85 @@
+{
+    "name": "salescope",
+    "version": "1.4.9",
+    "description": "SaleScope POS",
+    "main": "electron-main.obfuscated.js",
+    "scripts": {
+        "start": "electron .",
+        "dist": "node scripts/obfuscate-dist.js && electron-builder",
+        "pack": "electron-builder --dir",
+        "postinstall": "npm install --prefix server && npm install --prefix client"
+    },
+    "author": "Antigravity",
+    "license": "ISC",
+    "devDependencies": {
+        "electron": "^28.3.3",
+        "electron-builder": "^22.14.13",
+        "fs-extra": "^11.3.0",
+        "javascript-obfuscator": "^4.1.1",
+        "wait-on": "^7.2.0"
+    },
+    "build": {
+        "appId": "com.salescope.pos",
+        "productName": "SaleScope",
+        "asar": true,
+        "asarUnpack": [],
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "electron-main.obfuscated.js",
+            "preload.obfuscated.js",
+            "package.json",
+            "schema.sql",
+            "loading.html",
+            "Salescope.png",
+            "client/dist/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "dist-obfuscated/server",
+                "to": "server",
+                "filter": [
+                    "**/*",
+                    "!backups/**",
+                    "!.wwebjs_auth/**",
+                    "!uploads/**",
+                    "!logs/**",
+                    "!*.data.json",
+                    "!node_modules/.bin/**",
+                    "!**/*.log",
+                    "!**/*.txt"
+                ]
+            },
+            {
+                "from": "client/dist",
+                "to": "client/dist",
+                "filter": [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "schema.sql",
+                "to": "schema.sql"
+            }
+        ],
+        "win": {
+            "icon": "client/public/Salescope.png",
+            "target": {
+                "target": "nsis",
+                "arch": [
+                    "x64"
+                ]
+            }
+        },
+        "mac": {
+            "icon": "client/public/Salescope.png"
+        },
+        "linux": {
+            "icon": "client/public/Salescope.png"
+        }
+    },
+    "dependencies": {
+        "mysql2": "^3.17.2"
+    }
+}

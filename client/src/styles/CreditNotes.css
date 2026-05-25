@@ -1,0 +1,311 @@
+/* CreditNotes.css */
+
+.cn-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--bg-main);
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header Section */
+.cn-header {
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+    z-index: 20;
+}
+
+.cn-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cn-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.cn-icon-box {
+    padding: 0.75rem;
+    background: linear-gradient(135deg, rgba(225, 29, 72, 0.1), rgba(225, 29, 72, 0.05));
+    border-radius: 0.75rem;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(225, 29, 72, 0.1);
+}
+
+.cn-title h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+}
+
+.cn-title p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0.125rem 0 0 0;
+    font-weight: 500;
+}
+
+/* Search Container */
+.cn-search-wrapper {
+    position: relative;
+    width: 320px;
+}
+
+.cn-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.cn-search-input {
+    width: 100%;
+    padding: 0.625rem 1rem 0.625rem 2.5rem;
+    background-color: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-main);
+    transition: all 0.2s;
+}
+
+.cn-search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: var(--bg-card);
+    box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.05);
+}
+
+/* Tabs / Filters */
+.cn-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    background-color: var(--bg-main);
+    border-radius: 0.75rem;
+    width: fit-content;
+}
+
+.cn-tab-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: capitalize;
+}
+
+.cn-tab-btn:hover {
+    color: var(--text-main);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.cn-tab-btn.active {
+    background-color: var(--bg-card);
+    color: var(--primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* KPI Grid */
+.cn-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+    padding: 1.5rem;
+    flex-shrink: 0;
+}
+
+.cn-kpi-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+}
+
+.cn-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+.cn-kpi-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.cn-kpi-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.cn-kpi-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+}
+
+.cn-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Table Section */
+.cn-content {
+    flex: 1;
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.cn-table-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cn-table-wrapper {
+    flex: 1;
+    overflow: auto;
+}
+
+.cn-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cn-table thead {
+    background-color: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+}
+
+.cn-table th {
+    padding: 0.875rem 1rem;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cn-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+    color: var(--text-main);
+    vertical-align: middle;
+}
+
+.cn-table tr:hover {
+    background-color: #fcfcfc;
+}
+
+/* Badges */
+.cn-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.cn-badge-active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.cn-badge-redeemed {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.cn-badge-expired {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Utility */
+.val-right {
+    text-align: right;
+}
+
+.val-center {
+    text-align: center;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-weight: 600;
+}
+
+.text-primary {
+    color: var(--primary);
+}
+
+.cn-action-group {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cn-animate {
+    animation: fadeIn 0.4s ease-out forwards;
+}

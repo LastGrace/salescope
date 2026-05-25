@@ -1,0 +1,69 @@
+/* Layout Styles */
+
+.layout {
+    overflow: hidden;
+}
+
+.logo-area-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    /* padding: 0 0.5rem; */
+    transition: all 0.3s ease;
+}
+
+.sidebar:not(.closed) .logo-area-wrapper {
+    /* padding: 0 0.5rem; */
+}
+
+.logo-icon-centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-container .logo-image {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+}
+
+.nav-container {
+    flex: 1;
+    overflow-y: auto;
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.nav-container::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+}
+
+.sidebar-footer {
+    border-top: 1px solid var(--sidebar-hover);
+    padding-top: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sidebar-action-btn {
+    width: 100%;
+    cursor: pointer;
+}
+
+.role-text-capital {
+    text-transform: capitalize;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-default {
+    cursor: default;
+}

@@ -1,0 +1,23 @@
+{
+    "ignore": [
+        ".git",
+        "node_modules",
+        "uploads",
+        ".wweb_session",
+        ".wweb_session_openwa",
+        ".wwebjs_auth",
+        ".wwebjs_cache",
+        ".node-persist",
+        "_IGNORE_*",
+        "*-SESSION.data.json",
+        "whatsapp-session.data.json",
+        "IMS_WA_SESSION.data.json",
+        "backup-config.json",
+        "drive-tokens.json",
+        "*.log"
+    ],
+    "watch": [
+        "."
+    ],
+    "ext": "js,json"
+}

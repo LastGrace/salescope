@@ -1,0 +1,174 @@
+/* WhatsApp QR Modal Styles */
+
+.qr-modal-overlay {
+    align-items: center;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+.qr-modal-content {
+    max-width: 450px;
+    width: 95%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    /* Limit height to viewport */
+    padding: 0;
+    border-radius: 1rem;
+    overflow: hidden;
+    /* Ensure header/footer radius works */
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+.qr-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-card);
+    flex-shrink: 0;
+}
+
+.qr-modal-title {
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.close-btn {
+    padding: 0.4rem;
+}
+
+.qr-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    /* Enable vertical scrolling */
+    flex: 1;
+    /* Take remaining space */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--bg-page);
+    gap: 1.5rem;
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-secondary);
+    padding: 2rem 0;
+}
+
+.spinner-wrapper {
+    position: relative;
+    color: #10ad5c;
+}
+
+.loading-text {
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.qr-display-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+    align-items: center;
+}
+
+.qr-code-box {
+    background: white;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.instructions-box {
+    text-align: left;
+    background: var(--bg-card);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    width: 100%;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.instructions-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.instructions-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.success-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 0;
+    width: 100%;
+}
+
+.success-icon-wrapper {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: rgba(16, 173, 92, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #10ad5c;
+}
+
+.success-text {
+    text-align: center;
+}
+
+.success-title {
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    font-size: 1.2rem;
+    margin-top: 0;
+}
+
+.success-subtitle {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.continue-btn {
+    width: 100%;
+    padding: 0.75rem;
+}
+
+.error-banner-custom {
+    background: #fef2f2;
+    color: #ef4444;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    width: 100%;
+    font-size: 0.9rem;
+    text-align: center;
+}
