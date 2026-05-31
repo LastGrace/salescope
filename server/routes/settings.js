@@ -68,7 +68,7 @@ router.post('/factory-reset', verifyToken, async (req, res) => {
 });
 
 // GET /api/settings/store - Fetch store settings
-router.get('/store', verifyToken, async (req, res) => {
+router.get('/store', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM store_settings WHERE id = 1');
 
