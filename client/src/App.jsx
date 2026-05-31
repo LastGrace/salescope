@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { Routes, Route, Navigate, BrowserRouter, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -7,33 +7,33 @@ import ConfirmModal from './components/ConfirmModal';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Lazy-loaded pages
-const Login = lazy(() => import('./pages/Login'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Statistics = lazy(() => import('./pages/Statistics'));
-const Inventory = lazy(() => import('./pages/Inventory'));
-const POS = lazy(() => import('./pages/POS'));
-const POSNew = lazy(() => import('./pages/POSNew'));
-const SalesRecords = lazy(() => import('./pages/SalesRecords'));
-const Customers = lazy(() => import('./pages/Customers'));
-const PurchaseOrders = lazy(() => import('./pages/PurchaseOrders'));
-const BarcodeGenerator = lazy(() => import('./pages/BarcodeGenerator'));
-const QuickAddProduct = lazy(() => import('./pages/QuickAddProduct'));
-const CreditBills = lazy(() => import('./pages/CreditBills'));
-const LoyaltySettings = lazy(() => import('./pages/LoyaltySettings'));
-const ReturnExchange = lazy(() => import('./pages/ReturnExchange'));
-const CreditNotes = lazy(() => import('./pages/CreditNotes'));
-const CategoryManager = lazy(() => import('./pages/CategoryManager'));
-const CouponManager = lazy(() => import('./pages/CouponManager'));
-const ExpenseManager = lazy(() => import('./pages/ExpenseManager'));
-const WhatsAppBulk = lazy(() => import('./pages/WhatsAppBulk'));
-const DatabaseManager = lazy(() => import('./pages/DatabaseManager'));
-const EmployeeList = lazy(() => import('./pages/Employees/EmployeeList'));
-const EmployeeForm = lazy(() => import('./pages/Employees/EmployeeForm'));
-const EmployeePermissions = lazy(() => import('./pages/Employees/EmployeePermissions'));
-const FileManager = lazy(() => import('./pages/FileManager'));
-const StoreSettings = lazy(() => import('./pages/StoreSettings'));
-const ConnectDrive = lazy(() => import('./pages/ConnectDrive'));
-const Activation = lazy(() => import('./pages/Activation'));
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Statistics from './pages/Statistics';
+import Inventory from './pages/Inventory';
+import POS from './pages/POS';
+import POSNew from './pages/POSNew';
+import SalesRecords from './pages/SalesRecords';
+import Customers from './pages/Customers';
+import PurchaseOrders from './pages/PurchaseOrders';
+import BarcodeGenerator from './pages/BarcodeGenerator';
+import QuickAddProduct from './pages/QuickAddProduct';
+import CreditBills from './pages/CreditBills';
+import LoyaltySettings from './pages/LoyaltySettings';
+import ReturnExchange from './pages/ReturnExchange';
+import CreditNotes from './pages/CreditNotes';
+import CategoryManager from './pages/CategoryManager';
+import CouponManager from './pages/CouponManager';
+import ExpenseManager from './pages/ExpenseManager';
+import WhatsAppBulk from './pages/WhatsAppBulk';
+import DatabaseManager from './pages/DatabaseManager';
+import EmployeeList from './pages/Employees/EmployeeList';
+import EmployeeForm from './pages/Employees/EmployeeForm';
+import EmployeePermissions from './pages/Employees/EmployeePermissions';
+import FileManager from './pages/FileManager';
+import StoreSettings from './pages/StoreSettings';
+import ConnectDrive from './pages/ConnectDrive';
+import Activation from './pages/Activation';
 
 const PrivateRoute = ({ children, roles }) => {
   const { user } = useAuth();
@@ -321,8 +321,7 @@ const App = () => {
           </button>
         </div>
       )}
-      <Suspense fallback={<SuspenseFallback />}>
-        <Routes>
+      <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -368,7 +367,6 @@ const App = () => {
             } />
           </Route>
         </Routes>
-      </Suspense>
 
       <ConfirmModal
         isOpen={exitModal && !isBackingUp}
