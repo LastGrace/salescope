@@ -235,16 +235,6 @@ const App = () => {
     </div>
   );
 
-  if (licenseStatus.status === 'checking') {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#f8fafc', flexDirection: 'column', gap: '1rem', fontFamily: 'sans-serif' }}>
-        <h3>Loading SaleScope Security...</h3>
-        <span className="spinner" style={{ width: '40px', height: '40px', border: '4px solid #334155', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
   // Auto-redirect to activation page and poll when license is pending
   React.useEffect(() => {
     if (licenseStatus.status === 'pending') {
@@ -262,6 +252,16 @@ const App = () => {
     }, 10000);
     return () => clearInterval(interval);
   }, [licenseStatus.status, checkLicense]);
+
+  if (licenseStatus.status === 'checking') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#f8fafc', flexDirection: 'column', gap: '1rem', fontFamily: 'sans-serif' }}>
+        <h3>Loading SaleScope Security...</h3>
+        <span className="spinner" style={{ width: '40px', height: '40px', border: '4px solid #334155', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   const isInactive = licenseStatus.status !== 'licensed';
   const showOverlay = isInactive && licenseStatus.status !== 'pending' && location.pathname !== '/login' && location.pathname !== '/activation';
