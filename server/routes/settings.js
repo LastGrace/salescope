@@ -1,19 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
+const { verifyToken } = require('../middleware/authMiddleware');
 const { ENV_FILE, UPLOADS_DIR } = require('../paths');
 // `.env` is already configured in index.js at boot time
 const checkAndMigrate = require('../auto-migrate');
 
-// Helper for DB connection
-const getDb = async () => {
-    return await mysql.createConnection({
-        host: '127.0.0.1',
-        user: 'root',
-        password: 'O*999',
-        database: 'retail_shop_db'
-    });
-};
+const db = require('../db');
 
 const multer = require('multer');
 const path = require('path');
@@ -48,15 +42,12 @@ const upload = multer({
 });
 
 // POST /api/settings/factory-reset - Developer Danger Zone
-router.post('/factory-reset', async (req, res) => {
+router.post('/factory-reset', verifyToken, async (req, res) => {
     const { password } = req.body;
-    let connection;
 
     try {
-        connection = await getDb();
-
         // Find the Super Admin or Dev account
-        const [users] = await connection.query('SELECT password_hash FROM users WHERE username = "Dev" OR is_system = 1 LIMIT 1');
+        const [users] = await db.query('SELECT password_hash FROM users WHERE username = "Dev" OR is_system = 1 LIMIT 1');
 
         if (users.length === 0) {
             return res.status(500).json({ message: 'No system admin found to authorize reset.' });
@@ -73,17 +64,13 @@ router.post('/factory-reset', async (req, res) => {
     } catch (error) {
         console.error('Error during factory reset authorization:', error);
         res.status(500).json({ message: 'Internal server error during authorization' });
-    } finally {
-        if (connection) await connection.end();
     }
 });
 
 // GET /api/settings/store - Fetch store settings
-router.get('/store', async (req, res) => {
-    let connection;
+router.get('/store', verifyToken, async (req, res) => {
     try {
-        connection = await getDb();
-        const [rows] = await connection.query('SELECT * FROM store_settings WHERE id = 1');
+        const [rows] = await db.query('SELECT * FROM store_settings WHERE id = 1');
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Settings not initialized' });
@@ -104,7 +91,7 @@ router.get('/store', async (req, res) => {
             try {
                 await checkAndMigrate();
                 // Retry query once
-                const [rows] = await connection.query('SELECT * FROM store_settings WHERE id = 1');
+                const [rows] = await db.query('SELECT * FROM store_settings WHERE id = 1');
                 const settings = rows[0];
                 if (settings) {
                     if (!settings.logo_url) settings.logo_url = '/Salescope.png';
@@ -120,13 +107,11 @@ router.get('/store', async (req, res) => {
         }
         console.error('Error fetching store settings:', error);
         res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (connection) await connection.end();
     }
 });
 
 // POST /api/settings/store - Update store settings (with Logo Uploads)
-router.post('/store', upload.any(), async (req, res) => {
+router.post('/store', verifyToken, upload.any(), async (req, res) => {
     const {
         store_name,
         address,
@@ -151,7 +136,6 @@ router.post('/store', upload.any(), async (req, res) => {
         show_product_add_sound
     } = req.body || {};
 
-    let connection;
     let logoUrl = null;
     let billLogoUrl = null;
     let loginLogoUrl = null;
@@ -159,11 +143,9 @@ router.post('/store', upload.any(), async (req, res) => {
     let productAddSoundUrl = null;
 
     try {
-        connection = await getDb();
-
         // 1. Get current settings to handle logo updates (safe selection sub-block)
         try {
-            const [currentRows] = await connection.query('SELECT logo_url, bill_logo_url, login_logo_url, pos_background_url, product_add_sound_url FROM store_settings WHERE id = 1');
+            const [currentRows] = await db.query('SELECT logo_url, bill_logo_url, login_logo_url, pos_background_url, product_add_sound_url FROM store_settings WHERE id = 1');
             if (currentRows && currentRows.length > 0) {
                 logoUrl = currentRows[0].logo_url || null;
                 billLogoUrl = currentRows[0].bill_logo_url || null;
@@ -221,7 +203,7 @@ router.post('/store', upload.any(), async (req, res) => {
             show_product_add_sound === 'true' || show_product_add_sound === true ? 1 : 0
         ];
 
-        await connection.query(query, values);
+        await db.query(query, values);
 
         res.json({
             message: 'Settings updated successfully',
@@ -270,7 +252,7 @@ router.post('/store', upload.any(), async (req, res) => {
                     show_pos_background === 'true' || show_pos_background === true ? 1 : 0,
                     show_product_add_sound === 'true' || show_product_add_sound === true ? 1 : 0
                 ];
-                await connection.query(retryQuery, retryValues);
+                await db.query(retryQuery, retryValues);
                 return res.json({
                     message: 'Settings updated successfully (after migration)',
                     logo_url: logoUrl,
@@ -285,8 +267,6 @@ router.post('/store', upload.any(), async (req, res) => {
         }
 
         res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        if (connection) await connection.end();
     }
 });
 

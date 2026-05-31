@@ -35,6 +35,16 @@ router.post('/activate', async (req, res) => {
 
     try {
         const payload = await activateLicense(key);
+        
+        // If the activation is pending admin approval, return a different response
+        if (payload.status === 'pending') {
+            return res.json({
+                success: true,
+                pending: true,
+                message: payload.reason || 'Activation request submitted. Waiting for admin approval.',
+            });
+        }
+        
         res.json({
             success: true,
             message: 'Activation successful! Software unlocked.',

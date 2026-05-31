@@ -23,7 +23,8 @@ const verifyToken = (req, res, next) => {
     }
 
     try {
-        jwt.verify(tokenParts[1], 'supersecretkey', (err, decoded) => {
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_generated_secret_key_849302194';
+        jwt.verify(tokenParts[1], JWT_SECRET, (err, decoded) => {
             if (err) {
                 return res.status(401).json({ message: 'Unauthorized' });
             }

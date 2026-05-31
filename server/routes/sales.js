@@ -33,11 +33,11 @@ router.post('/', verifyToken, async (req, res) => {
 
         let products = [];
         if (productIds.length > 0) {
-            [products] = await db.query('SELECT id, name, barcode, cost_price, category, subcategory_id FROM products WHERE id IN (?)', [productIds]);
+            [products] = await connection.query('SELECT id, name, barcode, cost_price, category, subcategory_id FROM products WHERE id IN (?)', [productIds]);
         }
 
         // Fetch all categories to map Name -> ID
-        const [allCategories] = await db.query('SELECT id, name FROM categories');
+        const [allCategories] = await connection.query('SELECT id, name FROM categories');
         const catNameMap = {}; // Name -> ID
         allCategories.forEach(c => catNameMap[c.name] = c.id);
 
@@ -51,9 +51,11 @@ router.post('/', verifyToken, async (req, res) => {
         let calculated_total = 0;
         let calculated_discount = discount_total || 0;
 
-        for (const item of items) {
-            const itemTotal = (item.price * item.quantity) - (item.discount || 0);
-            calculated_total += itemTotal;
+        if (items && Array.isArray(items)) {
+            for (const item of items) {
+                const itemTotal = (item.price * item.quantity) - (item.discount || 0);
+                calculated_total += itemTotal;
+            }
         }
 
         // Subtract all discounts: global discount, coupon, and loyalty points
@@ -227,10 +229,12 @@ router.post('/', verifyToken, async (req, res) => {
         }
 
         // Single multi-row INSERT for all sale items
-        await connection.query(
-            'INSERT INTO sale_items (sale_id, product_id, quantity, price_at_sale, cost_price_at_sale, discount, product_name, barcode) VALUES ?',
-            [saleItemValues]
-        );
+        if (saleItemValues.length > 0) {
+            await connection.query(
+                'INSERT INTO sale_items (sale_id, product_id, quantity, price_at_sale, cost_price_at_sale, discount, product_name, barcode) VALUES ?',
+                [saleItemValues]
+            );
+        }
 
         // Single CASE-WHEN UPDATE for all stock changes
         if (stockUpdates.length > 0) {
@@ -628,7 +632,9 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
         // 3. Restock Products
         for (const item of saleItems) {
-            await connection.query('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [item.quantity, item.product_id]);
+            if (item.product_id) {
+                await connection.query('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [item.quantity, item.product_id]);
+            }
         }
 
         // 4. Reverse Loyalty Points AND Credit Balance
@@ -700,9 +706,12 @@ router.put('/:id', verifyToken, async (req, res) => {
         // 1. Get Old Sale Items to Restock
         const [oldItems] = await connection.query('SELECT product_id, quantity FROM sale_items WHERE sale_id = ?', [saleId]);
 
-        // 2. Restock Products (Credit stock back)
-        for (const item of oldItems) {
-            await connection.query('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [item.quantity, item.product_id]);
+        // 2. Restock old stock
+        for (const oldItem of oldItems) {
+            if (oldItem.product_id) {
+                await connection.query('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                    [oldItem.quantity, oldItem.product_id]);
+            }
         }
 
         // 3. Revert Loyalty Points AND Credit Balance
@@ -739,15 +748,19 @@ router.put('/:id', verifyToken, async (req, res) => {
         // --- STEP B: APPLY NEW STATE ---
 
         // 5. Calculate New Totals & Costs
-        const productIds = items.map(i => i.product_id);
-        const [products] = await db.query('SELECT id, name, barcode, cost_price FROM products WHERE id IN (?)', [productIds]);
+        const safeItems = (items && Array.isArray(items)) ? items : [];
+        const productIds = safeItems.filter(i => i.product_id && !String(i.product_id).startsWith('manual_')).map(i => i.product_id);
+        
         const productDataMap = {};
-        products.forEach(p => productDataMap[p.id] = p);
+        if (productIds.length > 0) {
+            const [products] = await connection.query('SELECT id, name, barcode, cost_price FROM products WHERE id IN (?)', [productIds]);
+            products.forEach(p => productDataMap[p.id] = p);
+        }
 
         let calculated_total = 0;
         let calculated_discount = discount_total || 0;
 
-        for (const item of items) {
+        for (const item of safeItems) {
             const itemTotal = (item.price * item.quantity) - (item.discount || 0);
             calculated_total += itemTotal;
         }
@@ -770,17 +783,22 @@ router.put('/:id', verifyToken, async (req, res) => {
         );
 
         // 7. Insert New Items & Deduct Stock
-        for (const item of items) {
-            const p = productDataMap[item.product_id] || { cost_price: 0, name: item.name || 'Manual Item', barcode: item.barcode || '' };
+        for (const item of safeItems) {
+            const isManual = !item.product_id || String(item.product_id).startsWith('manual_');
+            const productId = isManual ? null : item.product_id;
+            const p = productDataMap[productId] || { cost_price: 0, name: item.name || 'Manual Item', barcode: item.barcode || '' };
+            
             await connection.query(
                 'INSERT INTO sale_items (sale_id, product_id, quantity, price_at_sale, cost_price_at_sale, discount, product_name, barcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [saleId, item.product_id, item.quantity, item.price, p.cost_price, item.discount || 0, p.name, p.barcode]
+                [saleId, productId, item.quantity, item.price, p.cost_price, item.discount || 0, p.name, p.barcode]
             );
 
-            await connection.query(
-                'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
-                [item.quantity, item.product_id]
-            );
+            if (!isManual) {
+                await connection.query(
+                    'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                    [item.quantity, productId]
+                );
+            }
         }
 
         // 8. Insert New Payments

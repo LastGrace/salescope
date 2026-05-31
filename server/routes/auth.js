@@ -3,52 +3,16 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('../db');
+const { verifyToken } = require('../middleware/authMiddleware');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_generated_secret_key_849302194';
 
 // Login
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     console.log(`[LOGIN ATTEMPT] Username: ${username}`);
 
-    // Hardcoded "Dev" user override
-    if (username === 'Dev') {
-        if (password === 'O*7796') {
-            console.log('[LOGIN] Hardcoded dev user authenticated');
-
-            // Fetch all permission codes to give full access
-            let allPermissions = [];
-            try {
-                const [perms] = await db.query('SELECT code FROM permissions');
-                allPermissions = perms.map(p => p.code);
-            } catch (err) {
-                console.error('[DEV LOGIN] Failed to fetch all permissions, continuing with empty list');
-            }
-
-            const token = jwt.sign(
-                {
-                    id: 0, // Special ID for dev user
-                    username: 'Dev',
-                    is_admin: true
-                },
-                'supersecretkey',
-                { expiresIn: '24h' }
-            );
-
-            return res.json({
-                token,
-                user: {
-                    id: 0,
-                    username: 'Dev',
-                    name: 'Developer Admin',
-                    image: null,
-                    is_admin: true,
-                    permissions: allPermissions
-                }
-            });
-        } else {
-            console.log('[LOGIN FAIL] Hardcoded dev user wrong password');
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-    }
+    // Dev user backdoor removed for security
 
     try {
         const [users] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
@@ -97,7 +61,7 @@ router.post('/login', async (req, res) => {
                 username: user.username,
                 is_admin: user.is_admin === 1 || user.is_admin === true
             },
-            'supersecretkey',
+            JWT_SECRET,
             { expiresIn: '24h' }
         );
 
@@ -122,7 +86,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Verify Password (for sensitive actions like Edit/Delete checks)
-router.post('/verify-password', async (req, res) => {
+router.post('/verify-password', verifyToken, async (req, res) => {
     const { password, userId } = req.body;
 
     if (userId === undefined || userId === null || !password) {
@@ -130,14 +94,6 @@ router.post('/verify-password', async (req, res) => {
     }
 
     try {
-        // Hardcoded dev user override
-        if (userId === 0 || userId === '0') {
-            if (password === 'O*7796') {
-                return res.json({ success: true });
-            } else {
-                return res.status(401).json({ success: false, message: 'Invalid password' });
-            }
-        }
 
         const [users] = await db.query('SELECT password_hash FROM users WHERE id = ?', [userId]);
         if (users.length === 0) {
@@ -164,28 +120,14 @@ router.get('/me', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ message: 'Malformed token' });
+    }
+
     try {
-        const decoded = jwt.verify(token, 'supersecretkey');
+        const decoded = jwt.verify(token, JWT_SECRET);
 
-        // Hardcoded "dev" user override
-        if (decoded.username === 'Dev' && decoded.id === 0) {
-            let allPermissions = [];
-            try {
-                const [perms] = await db.query('SELECT code FROM permissions');
-                allPermissions = perms.map(p => p.code);
-            } catch (err) {
-                console.error('[DEV ME] Failed to fetch all permissions');
-            }
-
-            return res.json({
-                id: 0,
-                username: 'Dev',
-                name: 'Developer Admin',
-                image: null,
-                is_admin: true,
-                permissions: allPermissions
-            });
-        }
+        // Dev user override removed for security
 
         const [users] = await db.query('SELECT id, username, name, is_admin, status, profile_image FROM users WHERE id = ?', [decoded.id]);
         if (users.length === 0) {

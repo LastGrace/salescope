@@ -70,7 +70,9 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     ip_address VARCHAR(45),
     entity_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_activity_logs_created_at (created_at),
+    INDEX idx_activity_logs_employee_id (employee_id)
 );
 
 -- 7. Shifts Table
@@ -82,7 +84,8 @@ CREATE TABLE IF NOT EXISTS shifts (
     notes TEXT,
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_shifts_user_id (user_id)
 );
 
 -- 8. Categories & Subcategories
@@ -97,7 +100,8 @@ CREATE TABLE IF NOT EXISTS subcategories (
     name VARCHAR(255) NOT NULL,
     category_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+    INDEX idx_subcategories_category_id (category_id)
 );
 
 -- 9. Products Table
@@ -112,7 +116,9 @@ CREATE TABLE IF NOT EXISTS products (
     stock_quantity INT NOT NULL DEFAULT 0,
     low_stock_threshold INT DEFAULT 10,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (subcategory_id) REFERENCES subcategories(id) ON DELETE SET NULL
+    FOREIGN KEY (subcategory_id) REFERENCES subcategories(id) ON DELETE SET NULL,
+    INDEX idx_products_category (category),
+    INDEX idx_products_stock (stock_quantity)
 );
 
 -- 10. Customers Table
@@ -146,7 +152,8 @@ CREATE TABLE IF NOT EXISTS po_items (
     quantity INT NOT NULL,
     cost_price DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+    INDEX idx_po_items_po_id (po_id)
 );
 
 -- 12. Sales & Sale Items
@@ -163,7 +170,10 @@ CREATE TABLE IF NOT EXISTS sales (
     was_pay_later BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_sales_created_at (created_at),
+    INDEX idx_sales_customer_id (customer_id),
+    INDEX idx_sales_user_id (user_id)
 );
 
 CREATE TABLE IF NOT EXISTS sale_items (
@@ -177,7 +187,9 @@ CREATE TABLE IF NOT EXISTS sale_items (
     cost_price_at_sale DECIMAL(10,2) DEFAULT 0.00,
     discount DECIMAL(10,2) DEFAULT 0.00,
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+    INDEX idx_sale_items_sale_id (sale_id),
+    INDEX idx_sale_items_product_id (product_id)
 );
 
 -- 13. Migrations Tracking Table
@@ -195,7 +207,8 @@ CREATE TABLE IF NOT EXISTS sale_payments (
     amount DECIMAL(10,2) NOT NULL,
     transaction_id VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+    INDEX idx_sale_payments_sale_id (sale_id)
 );
 
 -- 14. Returns & Return Items
@@ -208,7 +221,8 @@ CREATE TABLE IF NOT EXISTS returns (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (original_sale_id) REFERENCES sales(id) ON DELETE SET NULL,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_returns_original_sale_id (original_sale_id)
 );
 
 CREATE TABLE IF NOT EXISTS return_items (
@@ -221,7 +235,8 @@ CREATE TABLE IF NOT EXISTS return_items (
     refund_price DECIMAL(10,2) NOT NULL,
     reason VARCHAR(255),
     FOREIGN KEY (return_id) REFERENCES returns(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+    INDEX idx_return_items_return_id (return_id)
 );
 
 -- 15. Credit Notes & Usage
@@ -233,7 +248,8 @@ CREATE TABLE IF NOT EXISTS credit_notes (
     balance DECIMAL(10,2) NOT NULL,
     expiry_date DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (customer_id) REFERENCES customers(id)
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    INDEX idx_credit_notes_customer_id (customer_id)
 );
 
 CREATE TABLE IF NOT EXISTS credit_note_usage (
@@ -243,7 +259,8 @@ CREATE TABLE IF NOT EXISTS credit_note_usage (
     amount_used DECIMAL(10,2) NOT NULL,
     used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (credit_note_id) REFERENCES credit_notes(id),
-    FOREIGN KEY (sale_id) REFERENCES sales(id)
+    FOREIGN KEY (sale_id) REFERENCES sales(id),
+    INDEX idx_credit_note_usage_cn_id (credit_note_id)
 );
 
 -- 16. Loyalty System
@@ -271,7 +288,8 @@ CREATE TABLE IF NOT EXISTS loyalty_ledger (
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
-    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL
+    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
+    INDEX idx_loyalty_ledger_customer_id (customer_id)
 );
 
 CREATE TABLE IF NOT EXISTS loyalty_category_rules (
@@ -322,7 +340,8 @@ CREATE TABLE IF NOT EXISTS coupon_usages (
     used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE CASCADE,
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
-    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+    INDEX idx_coupon_usages_sale_id (sale_id)
 );
 
 -- 18. Expenses Table
@@ -332,7 +351,8 @@ CREATE TABLE IF NOT EXISTS expenses (
     reason VARCHAR(255) NOT NULL,
     amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     category VARCHAR(100) DEFAULT 'General',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_expenses_date (date)
 );
 
 -- 19. Store Settings Table
@@ -485,26 +505,6 @@ FROM permissions;
 -- Performance Indexes
 -- ------------------------------------------
 
-CREATE INDEX idx_sales_created_at ON sales(created_at);
-CREATE INDEX idx_sales_customer_id ON sales(customer_id);
-CREATE INDEX idx_sales_user_id ON sales(user_id);
-CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
-CREATE INDEX idx_sale_items_product_id ON sale_items(product_id);
-CREATE INDEX idx_sale_payments_sale_id ON sale_payments(sale_id);
-CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_products_stock ON products(stock_quantity);
-CREATE INDEX idx_activity_logs_created_at ON activity_logs(created_at);
-CREATE INDEX idx_activity_logs_employee_id ON activity_logs(employee_id);
-CREATE INDEX idx_loyalty_ledger_customer_id ON loyalty_ledger(customer_id);
-CREATE INDEX idx_credit_notes_customer_id ON credit_notes(customer_id);
-CREATE INDEX idx_coupon_usages_sale_id ON coupon_usages(sale_id);
-CREATE INDEX idx_credit_note_usage_cn_id ON credit_note_usage(credit_note_id);
-CREATE INDEX idx_returns_original_sale_id ON returns(original_sale_id);
-CREATE INDEX idx_return_items_return_id ON return_items(return_id);
-CREATE INDEX idx_po_items_po_id ON po_items(po_id);
-CREATE INDEX idx_expenses_date ON expenses(date);
-CREATE INDEX idx_shifts_user_id ON shifts(user_id);
-CREATE INDEX idx_subcategories_category_id ON subcategories(category_id);
 
 -- ------------------------------------------
 -- End of Schema

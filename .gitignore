@@ -41,6 +41,13 @@ Thumbs.db
 sqlite.db
 local.db
 
+# SaleScope Local and Heavy Files
+server/chromium/
+server/.wwebjs_auth/
+server/backups/
+server/uploads/
+server/logs/
+
 # IDEs/Editors
 .idea/
 .vscode/

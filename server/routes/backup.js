@@ -57,6 +57,11 @@ router.post('/restore', async (req, res) => {
     }
     try {
         await restoreBackup(filename);
+        // Invalidate license cache since DB was rebuilt
+        try {
+            const { invalidateLicenseCache } = require('../middleware/licenseMiddleware');
+            invalidateLicenseCache();
+        } catch (e) { /* ignore */ }
         res.json({ message: 'Database restored successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -333,46 +338,36 @@ router.post('/danger/delete-all', async (req, res) => {
     const { password } = req.body;
 
     try {
-        // 1. Hardcoded Developer Bypass
-        if (password === 'O*7796') {
-            console.log('[DANGER] Authorized via hardcoded Dev credentials');
-            // Valid bypass, proceed
-        } else {
-            // 2. Fallback to checking the System Admin's database password
-            const [users] = await db.query('SELECT password_hash FROM users WHERE is_system = 1 LIMIT 1');
+        // Fallback to checking the System Admin's database password
+        const [users] = await db.query('SELECT password_hash FROM users WHERE is_system = 1 LIMIT 1');
 
-            if (users.length === 0) {
-                return res.status(500).json({ error: 'No system admin found to authorize reset.' });
-            }
+        if (users.length === 0) {
+            return res.status(500).json({ error: 'No system admin found to authorize reset.' });
+        }
 
-            const validPassword = await require('bcryptjs').compare(password, users[0].password_hash);
+        const validPassword = await require('bcryptjs').compare(password, users[0].password_hash);
 
-            if (!validPassword) {
-                return res.status(401).json({ error: 'Incorrect password' });
-            }
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Incorrect password' });
         }
 
         // Get all table names
         const [tables] = await db.query('SHOW TABLES');
         const dbName = process.env.DB_NAME || 'retail_shop_db';
         const tableKey = `Tables_in_${dbName}`;
+        const tableNames = tables.map(t => t[tableKey]).filter(Boolean);
 
-        if (tables.length === 0) {
+        if (tableNames.length === 0) {
             return res.json({ message: 'Database is already empty' });
         }
 
-        // Disable foreign key checks
+        // Drop all tables in a single batch
         await db.query('SET FOREIGN_KEY_CHECKS = 0');
-
-        // Drop all tables
-        for (const table of tables) {
-            const tableName = table[tableKey];
-            await db.query(`DROP TABLE IF EXISTS \`${tableName}\``);
-            console.log(`[DANGER] Dropped table: ${tableName}`);
-        }
-
-        // Re-enable foreign key checks
+        const dropStatements = tableNames.map(t => `DROP TABLE IF EXISTS \`${t}\``).join('; ');
+        await db.query(dropStatements);
         await db.query('SET FOREIGN_KEY_CHECKS = 1');
+        
+        tableNames.forEach(t => console.log(`[DANGER] Dropped table: ${t}`));
 
         console.log('[DANGER] All tables deleted successfully');
         res.json({ message: 'All database tables deleted successfully', tablesDeleted: tables.length });

@@ -135,11 +135,10 @@ router.get('/summary', verifyToken, checkPermission('dashboard.view'), async (re
         });
 
     } catch (err) {
-        console.error('Dashboard Summary Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching summary',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });
@@ -262,11 +261,10 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
         });
 
     } catch (err) {
-        console.error('Sales Analytics Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching sales analytics',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });
@@ -337,11 +335,10 @@ router.get('/inventory-analytics', verifyToken, checkPermission('dashboard.view'
         });
 
     } catch (err) {
-        console.error('Inventory Analytics Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching inventory analytics',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });
@@ -370,11 +367,10 @@ router.get('/staff-performance', verifyToken, checkPermission('dashboard.view'),
         });
 
     } catch (err) {
-        console.error('Staff Performance Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching staff performance',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });
@@ -452,95 +448,15 @@ router.get('/customer-analytics', verifyToken, checkPermission('dashboard.view')
         });
 
     } catch (err) {
-        console.error('Customer Analytics Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching customer analytics',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });
 
-// GET /api/dashboard/today-activity - Real-time Today's Pulse
-router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), async (req, res) => {
-    try {
-        const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-        const thirtyDaysAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        const [hourly, payments, trending, todayStats, typicalStats] = await Promise.all([
-            // 1. Hourly Traffic Heatmap
-            db.query(`
-                SELECT 
-                    HOUR(created_at) as hour, 
-                    SUM(total_amount) as revenue,
-                    COUNT(id) as bills
-                FROM sales 
-                WHERE DATE(created_at) = ?
-                GROUP BY HOUR(created_at)
-                ORDER BY hour ASC
-            `, [todayStr]),
-
-            // 2. Today's Payment Methods
-            db.query(`
-                SELECT 
-                    sp.payment_method, 
-                    SUM(sp.amount) as amount
-                FROM sale_payments sp
-                JOIN sales s ON sp.sale_id = s.id
-                WHERE DATE(s.created_at) = ?
-                GROUP BY sp.payment_method
-            `, [todayStr]),
-
-            // 3. Real-time Trending Items
-            db.query(`
-                SELECT 
-                    p.name, 
-                    p.barcode,
-                    SUM(si.quantity) as qty
-                FROM sale_items si
-                JOIN sales s ON si.sale_id = s.id
-                JOIN products p ON si.product_id = p.id
-                WHERE DATE(s.created_at) = ?
-                GROUP BY p.id
-                ORDER BY qty DESC
-                LIMIT 3
-            `, [todayStr]),
-
-            // 4. Today's Discount & Checkout Value
-            db.query(`
-                SELECT 
-                    SUM(discount_total) + SUM(coupon_amount) + SUM(loyalty_amount) as total_discount_given,
-                    AVG(total_amount) as avg_checkout
-                FROM sales
-                WHERE DATE(created_at) = ?
-            `, [todayStr]),
-
-            // 5. Typical Average Checkout (Last 30 Days)
-            db.query(`
-                SELECT AVG(total_amount) as typical_checkout
-                FROM sales
-                WHERE DATE(created_at) >= ? AND DATE(created_at) < ?
-            `, [thirtyDaysAgoStr, todayStr])
-        ]);
-
-        res.json({
-            hourly_traffic: hourly[0],
-            payment_methods: payments[0],
-            trending_items: trending[0],
-            discount_impact: todayStats[0][0].total_discount_given || 0,
-            avg_checkout_today: todayStats[0][0].avg_checkout || 0,
-            typical_checkout: typicalStats[0][0].typical_checkout || 0
-        });
-
-    } catch (err) {
-        console.error('Today Activity Error:', err);
-        res.status(500).json({
-            message: 'Error fetching today activity',
-            error: err.message,
-            stack: err.stack
-        });
-    }
-});
 
 // GET /api/dashboard/recent-activity - Audit Feed
 router.get('/recent-activity', verifyToken, checkPermission('dashboard.view'), async (req, res) => {
@@ -559,11 +475,10 @@ router.get('/recent-activity', verifyToken, checkPermission('dashboard.view'), a
         `);
         res.json(activity);
     } catch (err) {
-        console.error('Recent Activity Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching recent activity',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });
@@ -647,11 +562,7 @@ router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), as
             db.query(`SELECT created_at FROM sales ORDER BY created_at DESC LIMIT 1`)
         ]);
 
-        require('fs').writeFileSync('time_diag.txt', JSON.stringify({
-            js_today: { startTodayStr, endTodayStr, thirtyDaysAgoStr },
-            tz: diag[0][0],
-            latest_sale: diag[1] ? diag[1][0] : "No latest sale found"
-        }, null, 2));
+        // No filesystem write on API request
 
         res.json({
             hourly_traffic: hourly[0],
@@ -663,11 +574,10 @@ router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), as
         });
 
     } catch (err) {
-        console.error('Today Activity Error:', err);
+        console.error('Dashboard Error:', err);
         res.status(500).json({
-            message: 'Error fetching today activity',
-            error: err.message,
-            stack: err.stack
+            message: 'Error processing request',
+            error: err.message
         });
     }
 });

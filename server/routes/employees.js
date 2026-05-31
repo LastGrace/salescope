@@ -23,6 +23,51 @@ router.get('/', verifyToken, checkPermission('employee.view'), async (req, res) 
     }
 });
 
+// GET /api/employees/permissions/all - Get all available permissions
+router.get('/permissions/all', verifyToken, checkPermission('employee.view'), async (req, res) => {
+    try {
+        const [permissions] = await db.query(`
+            SELECT id, code, module, category, description
+            FROM permissions
+            ORDER BY category, module, code
+        `);
+        res.json(permissions);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// GET /api/employees/activity-logs - Get activity logs
+router.get('/activity-logs', verifyToken, checkPermission('activity_log.view'), async (req, res) => {
+    try {
+        const { employee_id, limit = 100 } = req.query;
+        let limitNum = parseInt(limit);
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) limitNum = 100;
+
+        let query = `
+            SELECT al.*, u.name as employee_name, u.username
+            FROM activity_logs al
+            LEFT JOIN users u ON al.employee_id = u.id
+        `;
+        const params = [];
+
+        if (employee_id) {
+            query += ' WHERE al.employee_id = ?';
+            params.push(employee_id);
+        }
+
+        query += ' ORDER BY al.created_at DESC LIMIT ?';
+        params.push(limitNum);
+
+        const [logs] = await db.query(query, params);
+        res.json(logs);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // GET /api/employees/:id - Get single employee
 router.get('/:id', verifyToken, checkPermission('employee.view'), async (req, res) => {
     try {
@@ -264,49 +309,6 @@ router.post('/:id/enable', verifyToken, checkPermission('employee.disable'), asy
     try {
         await db.query('UPDATE users SET status = ? WHERE id = ?', ['active', id]);
         res.json({ message: 'Employee enabled' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// GET /api/employees/permissions/all - Get all available permissions
-router.get('/permissions/all', verifyToken, checkPermission('employee.view'), async (req, res) => {
-    try {
-        const [permissions] = await db.query(`
-            SELECT id, code, module, category, description
-            FROM permissions
-            ORDER BY category, module, code
-        `);
-        res.json(permissions);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// GET /api/employees/activity-logs - Get activity logs
-router.get('/activity-logs', verifyToken, checkPermission('activity_log.view'), async (req, res) => {
-    try {
-        const { employee_id, limit = 100 } = req.query;
-
-        let query = `
-            SELECT al.*, u.name as employee_name, u.username
-            FROM activity_logs al
-            LEFT JOIN users u ON al.employee_id = u.id
-        `;
-        const params = [];
-
-        if (employee_id) {
-            query += ' WHERE al.employee_id = ?';
-            params.push(employee_id);
-        }
-
-        query += ' ORDER BY al.created_at DESC LIMIT ?';
-        params.push(parseInt(limit));
-
-        const [logs] = await db.query(query, params);
-        res.json(logs);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

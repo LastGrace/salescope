@@ -37,11 +37,20 @@ const Activation = ({ licenseStatus, onActivated }) => {
     try {
       const res = await axios.post('/api/license/activate', { key: activationKey.trim() });
       if (res.data.success) {
-        setSuccessMsg('License activated successfully! Unlocking SaleScope...');
-        setTimeout(() => {
-          onActivated();
-          setShowRenewForm(false);
-        }, 2000);
+        if (res.data.pending) {
+          // Key is valid but needs admin approval — refresh status to show pending UI
+          setSuccessMsg('Key accepted! Waiting for admin approval...');
+          setTimeout(() => {
+            onActivated();
+          }, 1500);
+        } else {
+          // Fully activated
+          setSuccessMsg('License activated successfully! Unlocking SaleScope...');
+          setTimeout(() => {
+            onActivated();
+            setShowRenewForm(false);
+          }, 2000);
+        }
       }
     } catch (err) {
       setErrorMsg(err.response?.data?.error || 'Invalid license key. Verification failed.');
@@ -76,13 +85,47 @@ const Activation = ({ licenseStatus, onActivated }) => {
   };
 
   const isLicensed = licenseStatus.status === 'licensed';
+  const isPending = licenseStatus.status === 'pending';
   const payload = licenseStatus.payload || {};
   const daysLeft = licenseStatus.daysLeft;
+
+  // Auto-poll license status every 10 seconds while pending
+  React.useEffect(() => {
+    if (!isPending) return;
+    const interval = setInterval(() => {
+      onActivated(); // re-checks /api/license/status
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isPending, onActivated]);
 
   return (
     <div className="activation-container">
       <div className="activation-card">
-        {isLicensed && !showRenewForm ? (
+        {isPending ? (
+          /* PENDING ADMIN APPROVAL SCREEN */
+          <div className="license-dashboard">
+            <div className="activation-header">
+              <div className="icon-badge pending animate-pulse-slow">
+                <Clock className="shield-icon" size={36} />
+              </div>
+              <h1>Awaiting Approval</h1>
+              <p className="subtitle pending-text">Activation Request Submitted</p>
+            </div>
+
+            <div className="status-banner warning">
+              <Clock className="banner-icon" />
+              <div>
+                <h3>Pending Admin Approval</h3>
+                <p>{licenseStatus.reason || 'Your license key has been verified and an activation request has been sent. The administrator needs to approve this device before SaleScope can be unlocked.'}</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px 0' }}>
+              <span className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #334155', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+              <span style={{ fontSize: '13px', color: '#94a3b8' }}>Checking for approval every 10 seconds...</span>
+            </div>
+          </div>
+        ) : isLicensed && !showRenewForm ? (
           /* PREMIUM ACTIVATED DASHBOARD */
           <div className="license-dashboard">
             <div className="activation-header">
@@ -387,6 +430,11 @@ const Activation = ({ licenseStatus, onActivated }) => {
           box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3);
         }
 
+        .icon-badge.pending {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+        }
+
         .shield-icon {
           color: #ffffff;
         }
@@ -397,6 +445,11 @@ const Activation = ({ licenseStatus, onActivated }) => {
 
         .success-text {
           color: #34d399 !important;
+          font-weight: 600;
+        }
+
+        .pending-text {
+          color: #fbbf24 !important;
           font-weight: 600;
         }
 

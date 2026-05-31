@@ -1,6 +1,6 @@
 {
     "name": "salescope",
-    "version": "1.4.9",
+    "version": "1.5.1",
     "description": "SaleScope POS",
     "main": "electron-main.obfuscated.js",
     "scripts": {
@@ -15,8 +15,7 @@
         "electron": "^28.3.3",
         "electron-builder": "^22.14.13",
         "fs-extra": "^11.3.0",
-        "javascript-obfuscator": "^4.1.1",
-        "wait-on": "^7.2.0"
+        "javascript-obfuscator": "^4.1.1"
     },
     "build": {
         "appId": "com.salescope.pos",
@@ -72,14 +71,20 @@
                 ]
             }
         },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": true,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "SaleScope POS",
+            "uninstallDisplayName": "SaleScope POS"
+        },
         "mac": {
             "icon": "client/public/Salescope.png"
         },
         "linux": {
             "icon": "client/public/Salescope.png"
         }
-    },
-    "dependencies": {
-        "mysql2": "^3.17.2"
     }
 }

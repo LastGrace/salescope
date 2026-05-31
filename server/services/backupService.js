@@ -71,7 +71,7 @@ const createBackup = () => {
         const filepath = path.join(BACKUP_DIR, filename);
 
         const passwordPart = 'O*999' ? `-p"O*999"` : '';
-        const command = `${MYSQLDUMP_CMD} -h 127.0.0.1 -u root ${passwordPart} retail_shop_db > "${filepath}"`;
+        const command = `${MYSQLDUMP_CMD} -h 127.0.0.1 -u root ${passwordPart} --result-file="${filepath}" retail_shop_db`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -98,37 +98,61 @@ const restoreBackup = async (filename) => {
     const db = require('../db');
 
     try {
-        // Disable foreign key checks
-        await db.query('SET FOREIGN_KEY_CHECKS = 0');
-
         // Get all tables
         const [tables] = await db.query('SHOW TABLES');
         const tableKey = `Tables_in_${dbName}`;
+        const tableNames = tables.map(t => t[tableKey]).filter(Boolean);
 
-        // Drop each table
-        for (const table of tables) {
-            const tableName = table[tableKey];
-            if (tableName) {
-                await db.query(`DROP TABLE IF EXISTS \`${tableName}\``);
-                console.log(`[Restore] Dropped table: ${tableName}`);
-            }
+        if (tableNames.length > 0) {
+            // Drop ALL tables in a single batch (much faster than one-by-one)
+            await db.query('SET FOREIGN_KEY_CHECKS = 0');
+            const dropStatements = tableNames.map(t => `DROP TABLE IF EXISTS \`${t}\``).join('; ');
+            await db.query(dropStatements);
+            await db.query('SET FOREIGN_KEY_CHECKS = 1');
+            tableNames.forEach(t => console.log(`[Restore] Dropped table: ${t}`));
+            console.log('[Restore] All existing tables dropped');
         }
-
-        // Re-enable foreign key checks
-        await db.query('SET FOREIGN_KEY_CHECKS = 1');
-        console.log('[Restore] All existing tables dropped');
     } catch (dropError) {
         console.warn('[Restore] Warning dropping tables:', dropError.message);
     }
 
-    // Now restore from backup file using mysql command
-    return new Promise((resolve, reject) => {
-        const restoreCommand = `${MYSQL_CMD} -h ${host} -u ${user} ${passwordPart} ${dbName} < "${filepath}"`;
+    // Pre-process file to fix encoding issues caused by old dumps
+    try {
+        const buffer = fs.readFileSync(filepath);
+        if (buffer.indexOf(0x00) !== -1 || (buffer[0] === 0xFF && buffer[1] === 0xFE)) {
+            console.log('[Restore] Fixing corrupted file encoding (UTF-16/null bytes) before restore...');
+            let text = '';
+            if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
+                text = buffer.toString('utf16le');
+            } else {
+                text = buffer.toString('utf8').replace(/\x00/g, '');
+            }
+            fs.writeFileSync(filepath, text, 'utf8');
+        }
+    } catch (e) {
+        console.warn('[Restore] File encoding pre-check failed:', e.message);
+    }
 
-        exec(restoreCommand, (error, stdout, stderr) => {
+    // Restore using pipe (type file | mysql) — much faster than source command
+    return new Promise((resolve, reject) => {
+        const formattedPath = filepath.replace(/\\/g, '/');
+        // Use pipe-based import for speed; fall back to source on error
+        const restoreCommand = `type "${filepath}" | ${MYSQL_CMD} --default-character-set=utf8 -h ${host} -u ${user} ${passwordPart} ${dbName}`;
+
+        exec(restoreCommand, { maxBuffer: 50 * 1024 * 1024, shell: 'cmd.exe' }, (error, stdout, stderr) => {
             if (error) {
-                console.error(`[Restore] Error: ${error.message}`);
-                return reject(error);
+                console.warn(`[Restore] Pipe import failed, trying source fallback: ${error.message}`);
+                // Fallback to source command
+                const fallbackCmd = `${MYSQL_CMD} --default-character-set=utf8 -h ${host} -u ${user} ${passwordPart} ${dbName} -e "source ${formattedPath}"`;
+                exec(fallbackCmd, { maxBuffer: 50 * 1024 * 1024 }, (err2) => {
+                    if (err2) {
+                        console.error(`[Restore] Fallback also failed: ${err2.message}`);
+                        return reject(err2);
+                    }
+                    console.log('[Restore] Database restored successfully from:', filename);
+                    resolve({ message: 'Restore successful' });
+                });
+                return;
             }
             console.log('[Restore] Database restored successfully from:', filename);
             resolve({ message: 'Restore successful' });

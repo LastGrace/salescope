@@ -7,6 +7,15 @@ const path = require('path');
 const fs = require('fs');
 const paths = require('./paths');
 
+// Load environment variables from .env in the correct location (DATA_DIR in paths)
+const envPath = path.join(paths.DATA_DIR, '.env');
+if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+} else {
+    require('dotenv').config(); // Fallback to standard CWD search
+}
+
+
 const db = require('./db');
 
 // Removed global static require for heavy module:
@@ -84,6 +93,17 @@ server.on('error', (err) => {
     try {
         const { CURRENT_SCHEMA_VERSION } = require('./config');
 
+        // Pre-warm the HWID cache in background (takes ~2.5s but won't block boot)
+        setImmediate(() => {
+            try {
+                const { getHardwareProfile } = require('./services/licenseService');
+                getHardwareProfile();
+                console.log('[License] HWID cache pre-warmed.');
+            } catch (e) {
+                // Non-critical, will be computed lazily on first license check
+            }
+        });
+
         // Verify connection FIRST with retry loop
         let connected = false;
         while (!connected) {
@@ -118,43 +138,36 @@ server.on('error', (err) => {
 
                 dbStatus = { ready: false, error: err.message, hint };
 
-                // Wait 1 second before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Wait 500ms before retrying (faster than 1s)
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
         }
 
-        // DB is connected, let the UI load IMMEDIATELY
+        await db.query(`CREATE TABLE IF NOT EXISTS schema_version (version INT NOT NULL)`);
+        const [versionRows] = await db.query('SELECT version FROM schema_version LIMIT 1');
+
+        if (versionRows.length === 0 || versionRows[0].version < CURRENT_SCHEMA_VERSION) {
+            console.log(`[DB] First run or new schema detected. Initializing database (v${CURRENT_SCHEMA_VERSION})...`);
+            const initSchema = require('./init_schema');
+            const migrationRunner = require('./migration_runner');
+            const seed = require('./seed');
+
+            await initSchema();
+            try { await require('./auto-migrate')(); } catch (e) { console.error('[DB] Auto-migrate failed:', e.message); }
+            await migrationRunner();
+            await seed();
+
+            // Save the schema version
+            await db.query('DELETE FROM schema_version');
+            await db.query('INSERT INTO schema_version (version) VALUES (?)', [CURRENT_SCHEMA_VERSION]);
+            console.log('[DB] Initialization complete and version updated.');
+        } else {
+            console.log('[DB] Fast boot: skipping schema/seed (already initialized).');
+        }
+
+        // Mark DB ready FIRST so health checks pass, THEN load routes
         dbStatus.ready = true;
         startBackgroundServices();
-
-        // NOW check schema, run migrations, and seed sequentially in the background
-        setTimeout(async () => {
-            try {
-                await db.query(`CREATE TABLE IF NOT EXISTS schema_version (version INT NOT NULL)`);
-                const [versionRows] = await db.query('SELECT version FROM schema_version LIMIT 1');
-
-                if (versionRows.length === 0 || versionRows[0].version < CURRENT_SCHEMA_VERSION) {
-                    console.log(`[DB] First run or new schema detected. Initializing database (v${CURRENT_SCHEMA_VERSION})...`);
-                    const initSchema = require('./init_schema');
-                    const migrationRunner = require('./migration_runner');
-                    const seed = require('./seed');
-
-                    await initSchema();
-                    try { await require('./auto-migrate')(); } catch (e) { console.error('[DB] Auto-migrate failed:', e.message); }
-                    await migrationRunner();
-                    await seed();
-
-                    // Save the schema version
-                    await db.query('DELETE FROM schema_version');
-                    await db.query('INSERT INTO schema_version (version) VALUES (?)', [CURRENT_SCHEMA_VERSION]);
-                    console.log('[DB] Initialization complete and version updated.');
-                } else {
-                    console.log('[DB] Fast boot: skipping schema/seed (already initialized).');
-                }
-            } catch (e) {
-                console.error('[DB] Background migration/seed error:', e.message);
-            }
-        }, 500); // Small delay to let Express and React hydrate first
 
     } catch (e) {
         console.error('[DB] Unexpected error during initialization:', e.message);
@@ -195,6 +208,14 @@ function startBackgroundServices() {
 
     // 2. Enforce Licensing security globally on subsequent API routes
     app.use(require('./middleware/licenseMiddleware'));
+
+    // 3. Start background license validation scheduler
+    try {
+        const { startLicenseScheduler } = require('./services/licenseService');
+        startLicenseScheduler();
+    } catch (e) {
+        console.error('[License Scheduler] Failed to initialize scheduler:', e.message);
+    }
 
     // ── DEFER HEAVY BACKUP INITIATION ──
     setTimeout(() => {
@@ -242,6 +263,10 @@ function startBackgroundServices() {
         res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.sendFile(path.join(distPath, 'index.html'), (err) => {
             if (err) {
+                // Ignore benign request aborted errors
+                if (err.code === 'ECONNABORTED' || err.message === 'Request aborted') {
+                    return;
+                }
                 console.error('Error serving index.html:', err);
                 next(err);
             }
@@ -253,7 +278,7 @@ function startBackgroundServices() {
     // ── DEFER HEAVY DEPENDENCIES ──
     // Touch heavy modules slightly earlier and trigger auto-init
     setTimeout(() => {
-        console.log('[Server] Lazy-loading heavy dependencies (WhatsApp service)... (2s delay)');
+        console.log('[Server] Lazy-loading heavy dependencies (WhatsApp service)...');
         try {
             const wa = require('./services/whatsappService');
             console.log('[Server] Heavy dependencies loaded. Attempting auto-init...');
@@ -261,7 +286,7 @@ function startBackgroundServices() {
         } catch (e) {
             console.error('[Server] Failed lazy-loading heavy module:', e.message);
         }
-    }, 2000);
+    }, 500);
 }
 
 // Serve static files from correct locations (paths module handles dev vs production)

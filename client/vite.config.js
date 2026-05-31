@@ -12,11 +12,19 @@ export default defineConfig(({ mode }) => ({
       deadCodeInjection: true,
       stringArray: true,
       stringArrayEncoding: ['base64'],
-      stringArrayThreshold: 0.75,
+      stringArrayThreshold: 0.5,
     })
   ],
   build: {
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['react-hot-toast']
+        }
+      }
+    }
   },
   server: {
     proxy: {
