@@ -8,8 +8,8 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === 'production' && obfuscator({
       compact: true,
-      controlFlowFlattening: true,
-      deadCodeInjection: true,
+      controlFlowFlattening: false,
+      deadCodeInjection: false,
       stringArray: true,
       stringArrayEncoding: ['base64'],
       stringArrayThreshold: 0.5,
