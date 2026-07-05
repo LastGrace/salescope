@@ -901,3 +901,10 @@
     font-size: 1rem;
     font-weight: 500;
 }
+
+/* Keyboard-only navigation styles */
+.active-keyboard-row {
+    background-color: rgba(99, 102, 241, 0.1) !important; /* Indigo tint */
+    outline: 2px solid var(--primary, #4f46e5) !important;
+    outline-offset: -2px;
+}

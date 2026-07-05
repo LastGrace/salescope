@@ -1,8 +1,13 @@
+// ── ELECTRON BOOT PROFILER ─────────────────────────────────────────
+const EBOOT_START = Date.now();
+const _ebp = (label) => console.log(`  [E-BOOT] ${label} @ +${Date.now() - EBOOT_START}ms`);
+
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { fork } = require('child_process');
 const http = require('http');
+_ebp('electron requires loaded');
 
 const SERVER_PORT = 3000;
 
@@ -10,7 +15,7 @@ const SERVER_PORT = 3000;
 if (process.platform === 'win32') {
     const { execSync } = require('child_process');
     const exeName = path.basename(process.execPath);
-    console.log(`[Main] Running startup cleanup for ${exeName}. My PID: ${process.pid}`);
+    _ebp(`startup cleanup starting for ${exeName} (PID: ${process.pid})`);
     
     if (app.isPackaged) {
         const safeExec = (cmd) => {
@@ -26,9 +31,11 @@ if (process.platform === 'win32') {
         safeExec(`wmic process where "name='chrome.exe' and commandline like '%wwebjs_auth%'" call terminate`);
     }
 }
+_ebp('process cleanup complete');
 
 // ── Single Instance Lock ───────────────────────────────────────────
 const gotTheLock = app.requestSingleInstanceLock();
+_ebp('single instance lock acquired');
 
 if (!gotTheLock) {
     console.log('[Main] Another instance is already running. Quitting.');
@@ -48,6 +55,7 @@ if (!gotTheLock) {
 // on user machines are visible even without a console.
 const logDir = path.join(app.getPath('userData'), 'logs');
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+_ebp('crash logging initialized');
 
 function logCrash(label, err) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -133,16 +141,69 @@ function createWindow() {
 
     // Close Confirmation Handler
     let isQuitting = false;
+    let closeFailsafeTimeout = null;
+
+    function forceQuitApp() {
+        isQuitting = true;
+        if (closeFailsafeTimeout) {
+            clearTimeout(closeFailsafeTimeout);
+            closeFailsafeTimeout = null;
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.destroy();
+        }
+
+        if (serverProcess) {
+            try {
+                if (process.platform === 'win32') {
+                    require('child_process').execSync(`taskkill /F /T /PID ${serverProcess.pid}`, { stdio: 'ignore' });
+                } else {
+                    serverProcess.kill();
+                }
+            } catch(e) {}
+            serverProcess = null;
+        }
+
+        if (process.platform === 'win32' && app.isPackaged) {
+            try {
+                const { execSync } = require('child_process');
+                const exeName = require('path').basename(process.execPath);
+                execSync('taskkill /F /IM "node.exe" /T', { stdio: 'ignore' });
+                execSync(`taskkill /F /IM "${exeName}" /FI "PID ne ${process.pid}" /T`, { stdio: 'ignore' });
+            } catch(e) {}
+        }
+
+        app.exit(0);
+    }
 
     mainWindow.on('close', (e) => {
         if (isQuitting) return;
         e.preventDefault();
         mainWindow.webContents.send('close-app-request');
+
+        if (closeFailsafeTimeout) {
+            clearTimeout(closeFailsafeTimeout);
+        }
+
+        // Failsafe: if the renderer crashes or doesn't respond in 5 seconds, force quit.
+        closeFailsafeTimeout = setTimeout(() => {
+            if (!isQuitting) {
+                console.log('[Main] Renderer did not respond to close request. Forcing exit.');
+                forceQuitApp();
+            }
+        }, 5000);
+    });
+
+    ipcMain.on('close-app-acknowledge', () => {
+        console.log('[Main] Renderer acknowledged close request. Clearing failsafe timer.');
+        if (closeFailsafeTimeout) {
+            clearTimeout(closeFailsafeTimeout);
+            closeFailsafeTimeout = null;
+        }
     });
 
     ipcMain.on('quit-app', () => {
-        isQuitting = true;
-        if (mainWindow) mainWindow.close();
+        forceQuitApp();
     });
 
     ipcMain.on('minimize-app', () => {
@@ -175,12 +236,12 @@ function createWindow() {
 
 // ── Server Launch ──────────────────────────────────────────────────
 function startServer() {
-    console.log('[Main] Starting internal server...');
+    _ebp('startServer() called');
 
     const serverScript = resolveResource('server/index.js');
     const cwd = path.dirname(serverScript);
 
-    console.log(`[Main] Server path: ${serverScript}`);
+    _ebp(`server script resolved: ${serverScript}`);
     console.log(`[Main] userData: ${app.getPath('userData')}`);
 
     if (!fs.existsSync(serverScript)) {
@@ -202,6 +263,7 @@ function startServer() {
         },
         stdio: 'pipe'
     });
+    _ebp('server process forked');
 
     if (serverProcess.stdout) {
         serverProcess.stdout.on('data', (data) => console.log(`[Server]: ${data}`));
@@ -240,7 +302,7 @@ async function cleanupOrphanedProcesses() {
         client.on('connect', async () => {
             // Someone is listening! We must run cleanup.
             client.destroy();
-            console.log('[Main] Port 3000 is occupied. Running fresh-start process cleanup...');
+            _ebp('Port 3000 is occupied — running heavy cleanup');
             await runHeavyCleanup();
             resolve();
         });
@@ -248,7 +310,7 @@ async function cleanupOrphanedProcesses() {
         client.on('error', (err) => {
             // Port is free (Connection Refused), skip the 1-2s delay!
             client.destroy();
-            console.log('[Main] Port 3000 is clear. Skipping heavy cleanup.');
+            _ebp('Port 3000 is clear — skipping heavy cleanup');
             resolve();
         });
 
@@ -319,10 +381,11 @@ function checkServer(attemptCount = 0) {
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
             if (res.statusCode === 200) {
-                console.log(`[Main] Server is healthy. Opening window...`);
+                _ebp('Server is healthy — opening window');
                 if (win) {
                     win.webContents.send('status-update', { status: 'ready', message: 'Finalizing...' });
                     win.loadURL(`http://127.0.0.1:${SERVER_PORT}`);
+                    _ebp('loadURL dispatched — UI loading');
                 }
                 return;
             }
@@ -346,7 +409,7 @@ function checkServer(attemptCount = 0) {
                         message: 'Initializing Database... This may take a minute.'
                     });
                 }
-                setTimeout(() => checkServer(attemptCount + 1), 100);
+                setTimeout(() => checkServer(attemptCount + 1), 20);
             } else if (status === 'error') {
                 const msg = hint || message || 'Database connection failed. Retrying...';
                 if (win && attemptCount % 10 === 0) {
@@ -354,13 +417,13 @@ function checkServer(attemptCount = 0) {
                     win.webContents.send('status-update', { status: 'checking', message: msg });
                 }
                 // Keep retrying non-stop
-                setTimeout(() => checkServer(attemptCount + 1), 100);
+                setTimeout(() => checkServer(attemptCount + 1), 20);
             } else {
                 const msg = hint || message || 'Server starting...';
                 if (win && attemptCount % 10 === 0) {
                     win.webContents.send('status-update', { status: 'checking', message: msg });
                 }
-                setTimeout(() => checkServer(attemptCount + 1), 100);
+                setTimeout(() => checkServer(attemptCount + 1), 20);
             }
         });
     });
@@ -374,19 +437,23 @@ function checkServer(attemptCount = 0) {
             });
         }
         // Retry indefinitely
-        setTimeout(() => checkServer(attemptCount + 1), 100);
+        setTimeout(() => checkServer(attemptCount + 1), 20);
     });
 }
 
 // ── App Lifecycle ──────────────────────────────────────────────────
 app.on('ready', async () => {
+    _ebp('app.on(ready) fired');
     // Copy essential files to userData on first run
     copyResourceIfMissing('schema.sql');
+    _ebp('schema.sql copy check done');
 
     createWindow();
+    _ebp('createWindow() complete');
 
     // Ensure we start fresh
     await cleanupOrphanedProcesses();
+    _ebp('orphan cleanup complete');
 
     startServer();
     checkServer();
@@ -399,29 +466,13 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
     if (serverProcess) {
         console.log('[Main] App quitting, killing server process tree...');
-
-        if (process.platform === 'win32') {
-            const { execSync } = require('child_process');
-            console.log('[Main] Running aggressive Windows cleanup...');
-
-            try {
-                // Kill the specific child server process first
-                console.log(`[Main] Killing child server process ${serverProcess.pid}`);
-                require('child_process').exec(`taskkill /F /T /PID ${serverProcess.pid}`);
-            } catch (e) { }
-
-            if (app.isPackaged) {
-                const safeExec = (cmd) => {
-                    try { execSync(cmd, { stdio: 'ignore' }); } catch (e) {}
-                };
-                // System-wide cleanup as explicitly requested by user for the standalone packaged app
-                console.log('[Main] Executing global taskkill for Salescope.exe and node.exe');
-                safeExec('taskkill /F /IM "node.exe" /T');
-                safeExec(`taskkill /F /IM "Salescope.exe" /FI "PID ne ${process.pid}" /T`);
+        try {
+            if (process.platform === 'win32') {
+                require('child_process').execSync(`taskkill /F /T /PID ${serverProcess.pid}`, { stdio: 'ignore' });
+            } else {
+                serverProcess.kill();
             }
-        } else {
-            serverProcess.kill();
-        }
+        } catch (e) {}
         serverProcess = null;
     }
 });

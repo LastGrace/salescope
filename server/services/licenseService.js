@@ -107,9 +107,9 @@ function verifyOnlineTokenLocally(token) {
 // ── Configuration Retrieval
 const getLicenseConfig = () => {
     const serverUrl = process.env.LIC_SERVER_URL || 'https://salescope-api.onrender.com';
-    const validationIntervalDays = parseInt(process.env.LIC_VALIDATION_INTERVAL_DAYS || '3', 10);
-    const offlineGraceDays = parseInt(process.env.LIC_OFFLINE_GRACE_DAYS || '7', 10);
-    return { serverUrl, validationIntervalDays, offlineGraceDays };
+    const validationIntervalHours = parseInt(process.env.LIC_VALIDATION_INTERVAL_HOURS || '1', 10);
+    const offlineGraceDays = parseInt(process.env.LIC_OFFLINE_GRACE_DAYS || '3', 10);
+    return { serverUrl, validationIntervalHours, offlineGraceDays };
 };
 
 
@@ -164,7 +164,85 @@ function execPowerShellCmd(cmd) {
     }
 }
 
+const util = require('util');
+const execAsync = util.promisify(require('child_process').exec);
+
+async function execWinCmdAsync(cmd) {
+    try {
+        if (process.platform !== 'win32') return '';
+        const { stdout } = await execAsync(cmd, { encoding: 'utf8' });
+        const lines = stdout.trim().split('\n');
+        if (lines.length > 1) {
+            return lines[1].trim(); 
+        }
+        return '';
+    } catch (e) {
+        return '';
+    }
+}
+
+async function execPowerShellCmdAsync(cmd) {
+    try {
+        if (process.platform !== 'win32') return '';
+        const { stdout } = await execAsync(`powershell -NoProfile -Command "${cmd}"`, { encoding: 'utf8' });
+        return stdout.trim();
+    } catch (e) {
+        return '';
+    }
+}
+
 let cachedHWID = null;
+
+const prewarmHardwareProfileAsync = async () => {
+    if (cachedHWID) return cachedHWID;
+
+    try {
+        let motherboard = await execWinCmdAsync('wmic baseboard get serialnumber');
+        if (!motherboard || motherboard.includes('To Be Filled') || motherboard.includes('00000000') || motherboard.trim() === '') {
+            motherboard = await execPowerShellCmdAsync('Get-CimInstance -ClassName Win32_BaseBoard | Select-Object -ExpandProperty SerialNumber');
+        }
+        if (!motherboard || motherboard.includes('To Be Filled') || motherboard.includes('00000000') || motherboard.trim() === '') {
+            motherboard = await execWinCmdAsync('wmic bios get serialnumber');
+        }
+        if (!motherboard || motherboard.includes('To Be Filled') || motherboard.includes('00000000') || motherboard.trim() === '') {
+            motherboard = await execPowerShellCmdAsync('Get-CimInstance -ClassName Win32_BIOS | Select-Object -ExpandProperty SerialNumber');
+        }
+
+        let cpu = await execWinCmdAsync('wmic cpu get processorid');
+        if (!cpu || cpu.trim() === '') {
+            cpu = await execPowerShellCmdAsync('Get-CimInstance -ClassName Win32_Processor | Select-Object -ExpandProperty ProcessorId');
+        }
+
+        let disk = await execWinCmdAsync('wmic logicaldisk where DeviceID="C:" get VolumeSerialNumber');
+        if (!disk || disk.trim() === '') {
+            disk = await execPowerShellCmdAsync('Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID=\'C:\'" | Select-Object -ExpandProperty VolumeSerialNumber');
+        }
+
+        let mac = '';
+        const interfaces = os.networkInterfaces();
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name]) {
+                if (iface.family === 'IPv4' && !iface.internal && iface.mac !== '00:00:00:00:00:00') {
+                    mac = iface.mac.toUpperCase();
+                    break;
+                }
+            }
+            if (mac) break;
+        }
+
+        cachedHWID = {
+            motherboard: motherboard ? motherboard.toUpperCase().trim() : 'UNKNOWN_BOARD',
+            cpu: cpu ? cpu.toUpperCase().trim() : 'UNKNOWN_CPU',
+            disk: disk ? disk.toUpperCase().trim() : 'UNKNOWN_DISK',
+            mac: mac ? mac.trim() : 'UNKNOWN_MAC'
+        };
+        
+        return cachedHWID;
+    } catch (e) {
+        console.error('[License] Failed to prewarm hardware profile asynchronously:', e.message);
+        return { motherboard: 'UNKNOWN_BOARD', cpu: 'UNKNOWN_CPU', disk: 'UNKNOWN_DISK', mac: 'UNKNOWN_MAC' };
+    }
+};
 
 /**
  * 1. Collect Hardware Fingerprint Profile
@@ -413,7 +491,7 @@ const verifyLicenseKey = (keyString) => {
  * Evaluates license keys, trials, and clock status.
  * Returns: { status: 'licensed' | 'trial_active' | 'trial_expired' | 'clock_tampered' | 'invalid', daysLeft: number, billsLeft: number, reason: string }
  */
-const getLicenseStatus = async () => {
+const getLicenseStatus = async (forceSync = false) => {
     const meta = getHiddenMetadata();
     const now = Date.now();
 
@@ -483,7 +561,7 @@ const getLicenseStatus = async () => {
             const response = await axios.post(`${serverUrl}/api/license/status-check`, {
                 license_key: licenseData.key,
                 hwid: hwidString
-            }, { timeout: 5000 });
+            }, { timeout: 45000 });
 
             if (response.data.status === 'ACTIVE') {
                 // Admin approved! Upgrade to fully licensed online key.
@@ -519,7 +597,7 @@ const getLicenseStatus = async () => {
             return { status: 'pending', reason: 'Checking activation status... Unable to reach server.' };
         }
     } else if (isOnline) {
-        const { serverUrl, validationIntervalDays, offlineGraceDays } = getLicenseConfig();
+        const { serverUrl, validationIntervalHours, offlineGraceDays } = getLicenseConfig();
         
         // A. Dynamic Expiry Check
         const expiryDate = new Date(licenseData.expiresAt);
@@ -534,19 +612,21 @@ const getLicenseStatus = async () => {
             };
         }
 
+        const msPerHour = 1000 * 60 * 60;
         const msPerDay = 1000 * 60 * 60 * 24;
         const daysLeft = Math.max(0, Math.ceil((expiryDate.getTime() - today.getTime()) / msPerDay));
         
-        // B. Check if we need to contact server (e.g. interval exceeded)
+        // B. Check if we need to contact server (e.g. interval exceeded or forced)
         const lastVerified = licenseData.lastVerified || 0;
+        const hoursSinceVerification = (Date.now() - lastVerified) / msPerHour;
         const daysSinceVerification = (Date.now() - lastVerified) / msPerDay;
 
-        if (daysSinceVerification > validationIntervalDays) {
+        if (forceSync || hoursSinceVerification > validationIntervalHours) {
             // Need online validation check!
             try {
                 const response = await axios.post(`${serverUrl}/api/license/validate`, {
                     token: licenseData.token
-                }, { timeout: 5000 }); // 5 second timeout to fail fast if offline
+                }, { timeout: 45000 }); // 45 second timeout to allow Render cold starts
                 
                 if (response.data && response.data.valid) {
                     // Update cache state
@@ -574,6 +654,16 @@ const getLicenseStatus = async () => {
                     };
                 }
             } catch (error) {
+                // If the server explicitly rejected the license (e.g. 401 Unauthorized, revoked, expired)
+                if (error.response && error.response.status === 401) {
+                    try { fs.unlinkSync(LICENSE_FILE); } catch (err) {}
+                    await touchLastRunTime();
+                    return {
+                        status: 'invalid',
+                        reason: error.response.data?.error || 'License revoked, expired, or disabled by server administrator.'
+                    };
+                }
+
                 // Online check failed (network downtime or server down)
                 // Check if we are still within the offline grace period tolerance!
                 if (daysSinceVerification <= offlineGraceDays) {
@@ -676,7 +766,7 @@ const activateLicense = async (keyString) => {
                 license_key: keyString.trim(),
                 hwid: hwidString,
                 device_name: os.hostname() || 'Unknown-Device'
-            });
+            }, { timeout: 45000 });
             
             if (response.data && response.data.success) {
                 if (response.data.status === 'PENDING') {
@@ -779,7 +869,7 @@ const deactivateLicense = async () => {
                 const response = await axios.post(`${serverUrl}/api/license/deactivate`, {
                     token: licenseData.token,
                     hwid: hwidString
-                }, { timeout: 5000 });
+                }, { timeout: 45000 });
                 
                 if (!response.data.success) {
                     throw new Error('Server declined deactivation.');
@@ -812,7 +902,7 @@ function startLicenseScheduler() {
         }
     }, 30000);
 
-    // Run every 12 hours
+// Run every 1 hour
     setInterval(async () => {
         try {
             console.log('[License Scheduler] Running background license re-validation...');
@@ -820,11 +910,12 @@ function startLicenseScheduler() {
         } catch (e) {
             console.error('[License Scheduler] Periodic re-validation error:', e.message);
         }
-    }, 12 * 60 * 60 * 1000); 
+    }, 1 * 60 * 60 * 1000); 
 }
 
 module.exports = {
     getHardwareProfile,
+    prewarmHardwareProfileAsync,
     getHiddenMetadata,
     touchLastRunTime,
     verifyLicenseKey,

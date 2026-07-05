@@ -31,6 +31,10 @@ let lastDriveStatusCheck = 0;
 function loadGoogleCore() {
     if (!google) {
         google = require('googleapis').google;
+    }
+    // Always (re)create oauth2Client with current credentials so that
+    // reconfigured CLIENT_ID / CLIENT_SECRET are picked up immediately.
+    if (!oauth2Client || oauth2Client._clientId !== CLIENT_ID || oauth2Client._clientSecret !== CLIENT_SECRET) {
         oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
     }
 }
@@ -54,11 +58,18 @@ const configure = (clientId, clientSecret) => {
         console.error('[Drive] Error saving config:', e.message);
     }
 
+    // Force-recreate oauth2Client with new credentials
     if (google) {
         oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+    } else {
+        // Ensure google is loaded so oauth2Client is ready for getAuthUrl()
+        loadGoogleCore();
     }
-    // Reset drive client to force reconnection with new creds (optional)
+
+    // Reset drive client and cached status to force fresh state
     driveClient = null;
+    cachedDriveStatus = null;
+    lastDriveStatusCheck = 0;
 };
 
 /**
@@ -160,6 +171,9 @@ const getStatus = async () => {
 const disconnect = () => {
     if (fs.existsSync(TOKEN_FILE)) fs.unlinkSync(TOKEN_FILE);
     driveClient = null;
+    // Clear cached status so getStatus() returns fresh results after disconnect/reconfigure
+    cachedDriveStatus = null;
+    lastDriveStatusCheck = 0;
 };
 
 /**

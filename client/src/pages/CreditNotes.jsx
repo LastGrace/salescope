@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Search, RotateCcw, Printer, FileText, CheckCircle, Clock, Ban, Wallet, ArrowRightCircle, AlertCircle, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 import ViewBillModal from '../components/ViewBillModal';
+import ViewCreditNoteModal from '../components/ViewCreditNoteModal';
 import '../styles/CreditNotes.css';
 
 const CreditNotes = () => {
@@ -11,6 +12,7 @@ const CreditNotes = () => {
     const [filter, setFilter] = useState('active'); // active, redeemed, expired, all
     const [loading, setLoading] = useState(true);
     const [selectedSale, setSelectedSale] = useState(null);
+    const [selectedCreditNote, setSelectedCreditNote] = useState(null);
 
     useEffect(() => {
         fetchCreditNotes();
@@ -189,10 +191,10 @@ const CreditNotes = () => {
                                             </td>
                                             <td className="val-center">
                                                 <div className="cn-action-group">
-                                                    <button className="btn-icon" title="View Sale" onClick={() => handleViewSale(note.sale_id)}>
+                                                    <button className="btn-icon" title="View Credit Note" onClick={() => setSelectedCreditNote(note)}>
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button className="btn-icon" title="Print" onClick={() => window.print()}>
+                                                    <button className="btn-icon" title="Print Credit Note" onClick={() => setSelectedCreditNote(note)}>
                                                         <Printer size={16} />
                                                     </button>
                                                 </div>
@@ -218,6 +220,14 @@ const CreditNotes = () => {
                 <ViewBillModal
                     sale={selectedSale}
                     onClose={() => setSelectedSale(null)}
+                />
+            )}
+
+            {selectedCreditNote && (
+                <ViewCreditNoteModal
+                    creditNote={selectedCreditNote}
+                    onClose={() => setSelectedCreditNote(null)}
+                    onViewSale={handleViewSale}
                 />
             )}
         </div>

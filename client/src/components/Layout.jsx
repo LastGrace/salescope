@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ThemeSelector from './ThemeSelector';
 import TitleBar from './TitleBar';
+import toast from 'react-hot-toast';
 import '../styles/Layout.css';
 
 const Layout = () => {
@@ -31,6 +32,49 @@ const Layout = () => {
     const toggleSidebarMode = () => {
         setSidebarMode(prev => prev === 'auto' ? 'logo' : 'auto');
     };
+
+    // Auto-start WhatsApp engine AFTER UI loads, with connection notifications
+    useEffect(() => {
+        let isCurrentlyConnecting = false;
+
+        const startWhatsApp = async () => {
+            try {
+                await fetch('/api/whatsapp/start', { method: 'POST' });
+            } catch (err) {
+                console.error('WhatsApp start error:', err);
+            }
+        };
+
+        const eventSource = new EventSource('/api/whatsapp/stream');
+        
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.status === 'initializing' || data.status === 'connecting') {
+                    isCurrentlyConnecting = true;
+                    toast.loading('Connecting WhatsApp...', { id: 'wa-status' });
+                } else if (data.status === 'connected') {
+                    if (isCurrentlyConnecting) {
+                        toast.success('WhatsApp Connected Successfully', { id: 'wa-status' });
+                        isCurrentlyConnecting = false;
+                    }
+                } else if (data.status === 'disconnected') {
+                    if (isCurrentlyConnecting) {
+                        toast.error('WhatsApp Connection Failed', { id: 'wa-status' });
+                        isCurrentlyConnecting = false;
+                    }
+                }
+            } catch (e) {}
+        };
+
+        // Start engine 1.5 seconds after UI mounts so boot feels instant
+        const timer = setTimeout(startWhatsApp, 1500);
+
+        return () => {
+            clearTimeout(timer);
+            eventSource.close();
+        };
+    }, []);
 
     // Global ESC to Back
     useEffect(() => {

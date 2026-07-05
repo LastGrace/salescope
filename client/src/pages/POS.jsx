@@ -14,6 +14,8 @@ import ConfirmModal from '../components/ConfirmModal';
 const POS = () => {
     const [products, setProducts] = useState([]);
     const [search, setSearch] = useState('');
+    const [activeCartIndex, setActiveCartIndex] = useState(-1);
+    const [isCheckingOut, setIsCheckingOut] = useState(false);
 
     // Loyalty State
     const [loyaltySettings, setLoyaltySettings] = useState(null);
@@ -162,10 +164,13 @@ const POS = () => {
 
     // Checkout
     const handleCheckout = async (shouldPrint = false) => {
+        if (isCheckingOut) return;
         if (cart.length === 0) {
             toast.error('Cart is empty');
             return;
         }
+
+        setIsCheckingOut(true);
 
         // Validate Split Payment
         let payments = [];
@@ -192,6 +197,7 @@ const POS = () => {
 
             if (Math.abs(totalSplit - finalTotal) > 1) { // 1 rupee tolerance
                 toast.error(`Payment mismatch. Total: ${finalTotal.toFixed(2)}, Split: ${totalSplit.toFixed(2)}`);
+                setIsCheckingOut(false);
                 return;
             }
 
@@ -250,10 +256,8 @@ const POS = () => {
             fetchNextBillId();
 
             // If "Save & Print" (now just View Bill), open the modal
-            if (shouldPrint) {
-                // Fetch full bill details to display in modal
-                const fullSaleRes = await axios.get(`/api/sales/${res.data.sale_id}`);
-                setViewingBill(fullSaleRes.data);
+            if (shouldPrint && res.data.sale_details) {
+                setViewingBill(res.data.sale_details);
             }
 
             // Refresh products/customers if needed?
@@ -261,6 +265,8 @@ const POS = () => {
             console.error('Checkout Error:', err);
             const msg = err.response?.data?.message || err.message || 'Checkout failed';
             toast.error(msg);
+        } finally {
+            setIsCheckingOut(false);
         }
     };
 
@@ -270,10 +276,21 @@ const POS = () => {
     const navigate = useNavigate();
     const [editingSaleId, setEditingSaleId] = useState(null);
 
-    // Wrapper for addToCart to handle local logic (search clearing)
+    // Wrapper for addToCart to handle local logic (search clearing & autofocus)
     const addToCart = (product) => {
         addToCartContext(product);
+        const index = cart.findIndex(item => item.id == product.id);
+        if (index !== -1) {
+            setActiveCartIndex(index);
+        } else {
+            setActiveCartIndex(cart.length);
+        }
         setSearch('');
+        setTimeout(() => {
+            if (barcodeInputRef.current) {
+                barcodeInputRef.current.focus();
+            }
+        }, 50);
     };
 
     // Handle incoming cart from Edit Bill
@@ -497,6 +514,8 @@ const POS = () => {
     };
 
     const barcodeInputRef = useRef(null);
+    const discountInputRef = useRef(null);
+    const customerInputRef = useRef(null);
     const endOfCartRef = useRef(null);
 
     // Auto-scroll to bottom of cart when new item is added
@@ -505,6 +524,215 @@ const POS = () => {
             endOfCartRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
     }, [cart.length]);
+
+    // Keep activeCartIndex in bounds
+    useEffect(() => {
+        if (cart.length === 0) {
+            setActiveCartIndex(-1);
+        } else if (activeCartIndex >= cart.length) {
+            setActiveCartIndex(cart.length - 1);
+        }
+    }, [cart.length, activeCartIndex]);
+
+    // Auto-scroll selected keyboard row into view
+    useEffect(() => {
+        if (activeCartIndex !== -1) {
+            const element = document.querySelector(`.cart-item-row-${activeCartIndex}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }, [activeCartIndex]);
+
+    // Keyboard Hotkeys Effect
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (isCheckingOut) return;
+            const activeEl = document.activeElement;
+            const isTyping = activeEl && (
+                activeEl.tagName === 'INPUT' || 
+                activeEl.tagName === 'TEXTAREA' || 
+                activeEl.isContentEditable
+            );
+
+            // Esc: Reset inputs and focus barcode input
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setSearch('');
+                setCustomerQuery('');
+                setShowCustomerResults(false);
+                if (barcodeInputRef.current) {
+                    barcodeInputRef.current.focus();
+                }
+                return;
+            }
+
+            // F1: Start New Bill / Reset
+            if (e.key === 'F1') {
+                e.preventDefault();
+                clearCart();
+                setIsSplitPayment(false);
+                setSplitAmounts({ cash: '', card: '', upi: '', pay_later: '' });
+                setAppliedCreditNote(null);
+                setPointsToRedeem('');
+                setEditingSaleId(null);
+                fetchNextBillId();
+                toast('New Bill Started');
+                if (barcodeInputRef.current) {
+                    barcodeInputRef.current.focus();
+                }
+                return;
+            }
+
+            // Ctrl + S: Save current bill (no print)
+            if (e.key === 's' && e.ctrlKey) {
+                e.preventDefault();
+                handleCheckout(false);
+                return;
+            }
+
+            // Ctrl + Enter: Save and Print
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                handleCheckout(true);
+                return;
+            }
+
+            // Alt + C: Focus Customer search
+            if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+                e.preventDefault();
+                if (customerInputRef.current) {
+                    customerInputRef.current.focus();
+                    customerInputRef.current.select();
+                }
+                return;
+            }
+
+            // Alt + D: Focus Global Discount
+            if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+                e.preventDefault();
+                if (discountInputRef.current) {
+                    discountInputRef.current.focus();
+                    discountInputRef.current.select();
+                }
+                return;
+            }
+
+            // Backtick / Tilde: Cycle payment methods
+            if ((e.key === '`' || e.key === '~') && !isTyping) {
+                e.preventDefault();
+                const methods = ['cash', 'card', 'upi', 'pay_later'];
+                setPaymentMethod(prev => {
+                    const nextIndex = (methods.indexOf(prev) + 1) % methods.length;
+                    return methods[nextIndex];
+                });
+                return;
+            }
+
+            // F6: Instant Checkout Cash (Save & Print)
+            if (e.key === 'F6') {
+                e.preventDefault();
+                setPaymentMethod('cash');
+                setTimeout(() => handleCheckout(true), 50);
+                return;
+            }
+
+            // F7: Instant Checkout UPI (Save & Print)
+            if (e.key === 'F7') {
+                e.preventDefault();
+                setPaymentMethod('upi');
+                setTimeout(() => handleCheckout(true), 50);
+                return;
+            }
+
+            // F8: Instant Checkout Card (Save & Print)
+            if (e.key === 'F8') {
+                e.preventDefault();
+                setPaymentMethod('card');
+                setTimeout(() => handleCheckout(true), 50);
+                return;
+            }
+
+            // Ctrl + + / Ctrl + = : Adjust quantity of highlighted or last added item
+            if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+                e.preventDefault();
+                if (cart.length > 0) {
+                    const targetIndex = (activeCartIndex !== -1 && activeCartIndex < cart.length) 
+                        ? activeCartIndex 
+                        : cart.length - 1;
+                    const targetItem = cart[targetIndex];
+                    updateQuantity(targetItem.id, targetItem.quantity + 1);
+                }
+                return;
+            }
+
+            // Ctrl + - : Adjust quantity of highlighted or last added item
+            if (e.ctrlKey && e.key === '-') {
+                e.preventDefault();
+                if (cart.length > 0) {
+                    const targetIndex = (activeCartIndex !== -1 && activeCartIndex < cart.length) 
+                        ? activeCartIndex 
+                        : cart.length - 1;
+                    const targetItem = cart[targetIndex];
+                    if (targetItem.quantity > 1) {
+                        updateQuantity(targetItem.id, targetItem.quantity - 1);
+                    }
+                }
+                return;
+            }
+
+            // Arrow down: Navigate cart
+            if (e.key === 'ArrowDown') {
+                if (cart.length > 0) {
+                    e.preventDefault();
+                    if (activeCartIndex === -1) {
+                        setActiveCartIndex(0);
+                    } else {
+                        setActiveCartIndex(prev => Math.min(prev + 1, cart.length - 1));
+                    }
+                }
+                return;
+            }
+
+            // Arrow up: Navigate cart or return to barcode search
+            if (e.key === 'ArrowUp') {
+                if (cart.length > 0 && activeCartIndex !== -1) {
+                    e.preventDefault();
+                    if (activeCartIndex === 0) {
+                        setActiveCartIndex(-1);
+                        barcodeInputRef.current?.focus();
+                    } else {
+                        setActiveCartIndex(prev => prev - 1);
+                    }
+                }
+                return;
+            }
+
+            // Highlighted cart row operations
+            if (activeCartIndex !== -1 && activeCartIndex < cart.length && !isTyping) {
+                const activeItem = cart[activeCartIndex];
+                if (e.key === '+' || e.key === '=') {
+                    e.preventDefault();
+                    updateQuantity(activeItem.id, activeItem.quantity + 1);
+                } else if (e.key === '-') {
+                    e.preventDefault();
+                    if (activeItem.quantity > 1) {
+                        updateQuantity(activeItem.id, activeItem.quantity - 1);
+                    }
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    removeFromCart(activeItem.id);
+                    setActiveCartIndex(prev => {
+                        if (cart.length <= 1) return -1;
+                        return Math.min(prev, cart.length - 2);
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [cart, paymentMethod, activeCartIndex, isCheckingOut]);
 
     useEffect(() => {
         fetchProducts();
@@ -844,7 +1072,11 @@ const POS = () => {
                             </thead>
                             <tbody>
                                 {cart.map((item, index) => (
-                                    <tr key={item.id} className={item.isManual ? 'manual-item-row' : ''}>
+                                    <tr 
+                                        key={item.id} 
+                                        className={`${item.isManual ? 'manual-item-row' : ''} cart-item-row-${index} ${activeCartIndex === index ? 'active-keyboard-row' : ''}`}
+                                        onClick={() => setActiveCartIndex(index)}
+                                    >
                                         <td className="pos-table-col-sno">{index + 1}</td>
                                         <td className="pos-barcode-text">
                                             {item.isManual ? (
@@ -992,6 +1224,7 @@ const POS = () => {
                             {/* Customer Search Input */}
                             <div className="customer-search-wrapper">
                                 <input
+                                    ref={customerInputRef}
                                     className="pos-search-input"
                                     style={{ padding: '0.5rem', fontSize: '0.9rem' }}
                                     placeholder="Search Name / Phone..."
@@ -1148,6 +1381,7 @@ const POS = () => {
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <input
+                                            ref={discountInputRef}
                                             type="number"
                                             className="pos-discount-input"
                                             value={globalDiscountValue}
@@ -1319,11 +1553,21 @@ const POS = () => {
                             </div>
 
                             <div className="checkout-actions">
-                                <button className="btn" style={{ flex: 1, padding: '0.5rem', color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }} onClick={() => handleCheckout(true)}>
-                                    <Printer size={16} style={{ marginBottom: '4px' }} /> {editingSaleId ? 'Update & Print' : 'Save & Print'}
+                                <button 
+                                    className="btn" 
+                                    style={{ flex: 1, padding: '0.5rem', color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }} 
+                                    onClick={() => handleCheckout(true)}
+                                    disabled={isCheckingOut}
+                                >
+                                    <Printer size={16} style={{ marginBottom: '4px' }} /> {isCheckingOut ? 'Printing...' : (editingSaleId ? 'Update & Print' : 'Save & Print')}
                                 </button>
-                                <button className="btn btn-primary" style={{ flex: 2, padding: '1rem', fontSize: '1.1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)' }} onClick={() => handleCheckout(false)}>
-                                    <CheckCircle size={20} /> {editingSaleId ? 'Update Bill' : 'Save'}
+                                <button 
+                                    className="btn btn-primary" 
+                                    style={{ flex: 2, padding: '1rem', fontSize: '1.1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)' }} 
+                                    onClick={() => handleCheckout(false)}
+                                    disabled={isCheckingOut}
+                                >
+                                    <CheckCircle size={20} /> {isCheckingOut ? 'Saving...' : (editingSaleId ? 'Update Bill' : 'Save')}
                                 </button>
                             </div>
                         </div>

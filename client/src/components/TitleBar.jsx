@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, RotateCw, X, ZoomIn, ZoomOut } from 'lucide-react';
 import axios from 'axios';
 import './TitleBar.css';
 
@@ -8,6 +8,14 @@ const TitleBar = () => {
     const navigate = useNavigate();
     const [storeName, setStoreName] = useState('');
     const [isVisible, setIsVisible] = useState(true);
+
+    const [zoomFactor, setZoomFactor] = useState(() => {
+        try {
+            return parseFloat(localStorage.getItem('pos_zoomFactor')) || 1.0;
+        } catch {
+            return 1.0;
+        }
+    });
 
     useEffect(() => {
         const fetchStoreName = async () => {
@@ -41,6 +49,13 @@ const TitleBar = () => {
         }
     }, [isVisible]);
 
+    useEffect(() => {
+        if (window.electronAPI && window.electronAPI.setZoomFactor) {
+            window.electronAPI.setZoomFactor(zoomFactor);
+        }
+        localStorage.setItem('pos_zoomFactor', zoomFactor.toString());
+    }, [zoomFactor]);
+
     const handleBack = () => {
         navigate(-1);
     };
@@ -53,6 +68,18 @@ const TitleBar = () => {
         if (window.electronAPI && window.electronAPI.closeWindow) {
             window.electronAPI.closeWindow();
         }
+    };
+
+    const zoomIn = () => {
+        setZoomFactor(prev => Math.min(prev + 0.1, 2.0)); // Cap at 200%
+    };
+
+    const zoomOut = () => {
+        setZoomFactor(prev => Math.max(prev - 0.1, 0.5)); // Cap at 50%
+    };
+
+    const resetZoom = () => {
+        setZoomFactor(1.0);
     };
 
     if (!isVisible) return null;
@@ -82,6 +109,42 @@ const TitleBar = () => {
                     title="Hard Refresh"
                 >
                     <RotateCw size={16} />
+                </button>
+                
+                {/* Zoom Controls */}
+                <button
+                    className="title-bar-btn"
+                    onClick={zoomOut}
+                    title="Zoom Out"
+                >
+                    <ZoomOut size={16} />
+                </button>
+                <span 
+                    className="zoom-level-text" 
+                    onClick={resetZoom} 
+                    title="Reset Zoom (100%)" 
+                    style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '0 8px', 
+                        cursor: 'pointer', 
+                        color: 'var(--text-muted, #94a3b8)', 
+                        userSelect: 'none',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '45px',
+                        height: '100%'
+                    }}
+                >
+                    {Math.round(zoomFactor * 100)}%
+                </span>
+                <button
+                    className="title-bar-btn"
+                    onClick={zoomIn}
+                    title="Zoom In"
+                >
+                    <ZoomIn size={16} />
                 </button>
             </div>
 

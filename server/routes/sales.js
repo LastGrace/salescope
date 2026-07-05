@@ -3,6 +3,40 @@ const router = express.Router();
 const db = require('../db');
 const { verifyToken } = require('../middleware/authMiddleware');
 
+// In-memory cache for static configurations to reduce database roundtrips
+const configCache = {
+    categories: null,
+    loyaltySettings: null,
+    loyaltyRules: null,
+    lastFetched: 0
+};
+const CACHE_TTL = 30 * 1000; // 30 seconds cache TTL
+
+const getCachedConfig = async (connection) => {
+    const now = Date.now();
+    if (
+        now - configCache.lastFetched > CACHE_TTL ||
+        !configCache.categories ||
+        !configCache.loyaltySettings ||
+        !configCache.loyaltyRules
+    ) {
+        console.log('[Cache] Cache expired/empty. Fetching categories, loyalty settings, and rules from DB...');
+        const [categories] = await connection.query('SELECT id, name FROM categories');
+        const [lSettings] = await connection.query('SELECT * FROM loyalty_settings LIMIT 1');
+        const [rulesRows] = await connection.query('SELECT * FROM loyalty_category_rules WHERE is_active = TRUE');
+
+        configCache.categories = categories;
+        configCache.loyaltySettings = lSettings.length > 0 ? lSettings[0] : null;
+        configCache.loyaltyRules = rulesRows;
+        configCache.lastFetched = now;
+    }
+    return {
+        categories: configCache.categories,
+        loyaltySettings: configCache.loyaltySettings,
+        loyaltyRules: configCache.loyaltyRules
+    };
+};
+
 // Create a new Sale (POS Transaction)
 // Create a new Sale (POS Transaction)
 // Create a new Sale (POS Transaction)
@@ -25,6 +59,9 @@ router.post('/', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        // Fetch cached configs (categories, loyalty settings, rules)
+        const cachedConfig = await getCachedConfig(connection);
+
         // 0. Fetch Product Costs
         // Filter out manual items (start with 'manual_')
         const allItems = [...(items || []), ...(return_items || [])];
@@ -36,8 +73,8 @@ router.post('/', verifyToken, async (req, res) => {
             [products] = await connection.query('SELECT id, name, barcode, cost_price, category, subcategory_id FROM products WHERE id IN (?)', [productIds]);
         }
 
-        // Fetch all categories to map Name -> ID
-        const [allCategories] = await connection.query('SELECT id, name FROM categories');
+        // Fetch all categories to map Name -> ID (cached)
+        const allCategories = cachedConfig.categories;
         const catNameMap = {}; // Name -> ID
         allCategories.forEach(c => catNameMap[c.name] = c.id);
 
@@ -139,6 +176,10 @@ router.post('/', verifyToken, async (req, res) => {
                     // Record Usage (Payment)
                     await connection.query('INSERT INTO sale_payments (sale_id, payment_method, amount) VALUES (?, ?, ?)',
                         [sale_id, 'credit_note', credit_note_amount_used]);
+
+                    // Record in credit_note_usage table
+                    await connection.query('INSERT INTO credit_note_usage (credit_note_id, sale_id, amount_used) VALUES (?, ?, ?)',
+                        [cn.id, sale_id, credit_note_amount_used]);
                 }
             }
         }
@@ -193,8 +234,17 @@ router.post('/', verifyToken, async (req, res) => {
         const return_balance = total_return_amount - return_used;
 
         if (return_balance > 0 && customer_id && refund_mode !== 'refund_cash') {
-            // create credit note
-            const cnCode = 'CN-' + Date.now() + Math.floor(Math.random() * 1000);
+            // Find the highest existing short credit note number (length <= 10) to bypass legacy timestamp codes
+            const [cnMaxRows] = await connection.query("SELECT code FROM credit_notes WHERE code LIKE 'CN-%' AND LENGTH(code) <= 10 ORDER BY id DESC LIMIT 1");
+            let nextNum = 1001;
+            if (cnMaxRows.length > 0) {
+                const lastCode = cnMaxRows[0].code;
+                const match = lastCode.match(/^CN-(\d+)$/);
+                if (match) {
+                    nextNum = parseInt(match[1]) + 1;
+                }
+            }
+            const cnCode = `CN-${nextNum}`;
             await connection.query(
                 'INSERT INTO credit_notes (code, customer_id, amount, balance, expiry_date) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 1 YEAR))',
                 [cnCode, customer_id, return_balance, return_balance]
@@ -254,19 +304,22 @@ router.post('/', verifyToken, async (req, res) => {
         }
 
         // 4. Insert Payments (batch)
-        const paymentList = (payments && payments.length > 0) ? payments : [{ method: final_method, amount: calculated_total }];
-        const paymentValues = paymentList.map(p => [sale_id, p.method, p.amount]);
-        await connection.query(
-            'INSERT INTO sale_payments (sale_id, payment_method, amount) VALUES ?',
-            [paymentValues]
-        );
+        let paymentList = (payments && payments.length > 0) ? payments : [{ method: final_method, amount: calculated_total }];
+        // Filter out 'credit_note' to avoid duplicate insertion (since it's already handled in step 2y), and skip zero/negative payments.
+        paymentList = paymentList.filter(p => p.method !== 'credit_note' && parseFloat(p.amount) > 0);
+        if (paymentList.length > 0) {
+            const paymentValues = paymentList.map(p => [sale_id, p.method, p.amount]);
+            await connection.query(
+                'INSERT INTO sale_payments (sale_id, payment_method, amount) VALUES ?',
+                [paymentValues]
+            );
+        }
 
         // 5. Update Loyalty Points (1 point per 10 Rupees) and Credit Balance
         // 5. Update Loyalty Points and Credit Balance
         if (customer_id) {
-            // A. Fetch Loyalty Settings
-            const [lSettings] = await connection.query('SELECT * FROM loyalty_settings LIMIT 1');
-            const loyalty = lSettings.length > 0 ? lSettings[0] : null;
+            // A. Get Loyalty Settings from Cache
+            const loyalty = cachedConfig.loyaltySettings;
 
             // B. Handle Redemption (if points were redeemed)
             // Expecting req.body.points_redeemed to be set if redemption occurred
@@ -290,8 +343,8 @@ router.post('/', verifyToken, async (req, res) => {
             // C. Calculate Earned Points (Category-wise + Percentage Support)
             let points_earned = 0;
             if (loyalty && loyalty.is_active && calculated_total > 0) {
-                // Fetch Category Rules
-                const [rulesRows] = await connection.query('SELECT * FROM loyalty_category_rules WHERE is_active = TRUE');
+                // Get Category Rules from Cache
+                const rulesRows = cachedConfig.loyaltyRules;
                 // Map by "catId_subId" (subId can be 'null')
                 const rulesMap = {};
                 rulesRows.forEach(r => {
@@ -382,8 +435,32 @@ router.post('/', verifyToken, async (req, res) => {
             );
         }
 
+        // Fetch full sale details to return to the frontend
+        const [saleRows] = await connection.query(`
+            SELECT s.*, c.name as customer_name, c.phone as customer_phone, u.name as user_name 
+            FROM sales s 
+            LEFT JOIN customers c ON s.customer_id = c.id
+            LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.id = ?
+        `, [sale_id]);
+
+        const [itemRows] = await connection.query(`
+            SELECT si.*, COALESCE(si.product_name, p.name) as product_name, COALESCE(si.barcode, p.barcode) as barcode
+            FROM sale_items si
+            LEFT JOIN products p ON si.product_id = p.id
+            WHERE si.sale_id = ?
+        `, [sale_id]);
+
+        const [paymentRows] = await connection.query(`
+            SELECT * FROM sale_payments WHERE sale_id = ?
+        `, [sale_id]);
+
         await connection.commit();
-        res.status(201).json({ message: 'Sale completed', sale_id });
+        res.status(201).json({ 
+            message: 'Sale completed', 
+            sale_id,
+            sale_details: { ...saleRows[0], items: itemRows, payments: paymentRows }
+        });
     } catch (err) {
         await connection.rollback();
         console.error(err);
@@ -427,7 +504,7 @@ router.get('/stats', verifyToken, async (req, res) => {
                     JOIN sales s_rev ON sp_rev.sale_id = s_rev.id 
                     LEFT JOIN customers c_rev ON s_rev.customer_id = c_rev.id
                     ${whereClause.replace(/\bs\./g, 's_rev.').replace(/\bc\./g, 'c_rev.')}
-                    AND sp_rev.payment_method NOT IN ('exchange')
+                    AND sp_rev.payment_method NOT IN ('exchange', 'credit_note')
                 ), 0) as total_revenue,
                 SUM(
                     (COALESCE((SELECT SUM((si.price_at_sale - COALESCE(si.cost_price_at_sale, 0)) * si.quantity - si.discount) 
@@ -504,11 +581,15 @@ router.get('/', verifyToken, async (req, res) => {
                     FROM sale_payments
                     WHERE sale_id = s.id
                 ) as payment_details,
-                COALESCE((
-                    SELECT SUM(sp_da.amount)
-                    FROM sale_payments sp_da
-                    WHERE sp_da.sale_id = s.id AND sp_da.payment_method NOT IN ('exchange')
-                ), s.total_amount) as display_amount
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM sale_payments WHERE sale_id = s.id) THEN
+                        COALESCE((
+                            SELECT SUM(sp_da.amount)
+                            FROM sale_payments sp_da
+                            WHERE sp_da.sale_id = s.id AND sp_da.payment_method NOT IN ('exchange', 'credit_note')
+                        ), 0)
+                    ELSE s.total_amount
+                END as display_amount
             FROM sales s 
             LEFT JOIN customers c ON s.customer_id = c.id
             LEFT JOIN users u ON s.user_id = u.id
@@ -701,6 +782,9 @@ router.put('/:id', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        // Fetch cached configs (categories, loyalty settings, rules)
+        const cachedConfig = await getCachedConfig(connection);
+
         // --- STEP A: REVERT OLD STATE ---
 
         // 1. Get Old Sale Items to Restock
@@ -823,12 +907,11 @@ router.put('/:id', verifyToken, async (req, res) => {
             // OR copy the logic. 
             // Copying logic is safer for "Agentic" mode than creating new files/exports in existing structure blindly.
 
-            const [lSettings] = await connection.query('SELECT * FROM loyalty_settings LIMIT 1');
-            const loyalty = lSettings.length > 0 ? lSettings[0] : null;
+            const loyalty = cachedConfig.loyaltySettings;
             let newPoints = 0;
 
             if (loyalty && loyalty.is_active && calculated_total > 0) {
-                const [rulesRows] = await connection.query('SELECT * FROM loyalty_category_rules WHERE is_active = TRUE');
+                const rulesRows = cachedConfig.loyaltyRules;
                 const rulesMap = {};
                 rulesRows.forEach(r => { rulesMap[`${r.category_id}_${r.subcategory_id || 'null'}`] = r; });
 
@@ -842,8 +925,8 @@ router.put('/:id', verifyToken, async (req, res) => {
                 // Let's refetch products with category info.
                 const [productsWithCat] = await connection.query('SELECT id, category, subcategory_id FROM products WHERE id IN (?)', [items.map(i => i.product_id)]);
                 const productCatMap = {};
-                // Need to resolve Category Name to ID again?
-                const [allCats] = await connection.query('SELECT id, name FROM categories');
+                // Need to resolve Category Name to ID again? (cached)
+                const allCats = cachedConfig.categories;
                 const catNameMap = {};
                 allCats.forEach(c => catNameMap[c.name] = c.id);
 
@@ -910,8 +993,32 @@ router.put('/:id', verifyToken, async (req, res) => {
             );
         }
 
+        // Fetch full sale details to return to the frontend
+        const [saleRows] = await connection.query(`
+            SELECT s.*, c.name as customer_name, c.phone as customer_phone, u.name as user_name 
+            FROM sales s 
+            LEFT JOIN customers c ON s.customer_id = c.id
+            LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.id = ?
+        `, [saleId]);
+
+        const [itemRows] = await connection.query(`
+            SELECT si.*, COALESCE(si.product_name, p.name) as product_name, COALESCE(si.barcode, p.barcode) as barcode
+            FROM sale_items si
+            LEFT JOIN products p ON si.product_id = p.id
+            WHERE si.sale_id = ?
+        `, [saleId]);
+
+        const [paymentRows] = await connection.query(`
+            SELECT * FROM sale_payments WHERE sale_id = ?
+        `, [saleId]);
+
         await connection.commit();
-        res.json({ message: 'Sale updated successfully', sale_id: saleId });
+        res.json({ 
+            message: 'Sale updated successfully', 
+            sale_id: saleId,
+            sale_details: { ...saleRows[0], items: itemRows, payments: paymentRows }
+        });
 
     } catch (err) {
         await connection.rollback();

@@ -13,7 +13,7 @@ import {
 import '../styles/Dashboard.css';
 import '../styles/Modal.css';
 
-import WhatsAppQRModal from '../components/WhatsAppQRModal';
+import WhatsAppConnectionBtn from '../components/WhatsAppConnectionBtn';
 import ShortcutModal from '../components/ShortcutModal';
 
 // Skeleton Loader Component
@@ -61,20 +61,16 @@ const Dashboard = () => {
     ], []);
 
     const [licenseStatus, setLicenseStatus] = useState(null);
-    const [whatsappStatus, setWhatsappStatus] = useState('disconnected');
     const [driveStatus, setDriveStatus] = useState(false);
-    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
     const fetchStatusData = useCallback(async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
         try {
             const headers = { Authorization: `Bearer ${token}` };
-            const [waRes, driveRes, licenseRes] = await Promise.all([
-                axios.get('/api/whatsapp/status', { headers }),
+            const [driveRes, licenseRes] = await Promise.all([
                 axios.get('/api/backup/drive/status', { headers }),
                 axios.get('/api/license/status', { headers })
             ]);
-            setWhatsappStatus(waRes.data?.status || 'disconnected');
             setDriveStatus(driveRes.data?.connected || false);
             setLicenseStatus(licenseRes.data || null);
         } catch (err) {
@@ -155,28 +151,7 @@ const Dashboard = () => {
                     {/* Status Indicators Stack */}
                     <div className="status-indicators-stack">
                         {/* WhatsApp Status */}
-                        <div
-                            onClick={async () => {
-                                if (whatsappStatus === 'connected') {
-                                    toast.success('WhatsApp is already connected!');
-                                } else {
-                                    try {
-                                        // Manually init when user clicks to connect
-                                        await axios.post('/api/whatsapp/init', {}, { headers: { Authorization: `Bearer ${token}` } });
-                                    } catch (e) {
-                                        console.error(e);
-                                    }
-                                    setShowWhatsAppModal(true);
-                                }
-                            }}
-                            className={`status-card status-card-custom ${whatsappStatus === 'connected' ? 'connected' : 'disconnected'}`}
-                        >
-                            <div className="status-content">
-                                <div className="status-dot"></div>
-                                <MessageSquare size={14} />
-                                <span>WhatsApp</span>
-                            </div>
-                        </div>
+                        <WhatsAppConnectionBtn />
 
                         {/* Google Drive Status */}
                         <div
@@ -196,24 +171,6 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        {/* License Status */}
-                        {licenseStatus && (
-                            <div
-                                className={`status-card status-card-custom ${licenseStatus.status === 'licensed' ? 'connected' : 'disconnected'}`}
-                                onClick={() => navigate('/activation')}
-                                title="Click to view license details"
-                            >
-                                <div className="status-content">
-                                    <div className="status-dot"></div>
-                                    <Shield size={14} />
-                                    <span>
-                                        {licenseStatus.status === 'licensed'
-                                            ? `License (${licenseStatus.daysLeft !== null && licenseStatus.daysLeft !== undefined ? `${licenseStatus.daysLeft}d left` : 'Active'})`
-                                            : 'Not Active'}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                     {/* POS Button */}
@@ -302,6 +259,23 @@ const Dashboard = () => {
                             />
                             <h2>Salescope</h2>
                             <p className="about-version">Retail Management System</p>
+                            
+                            {/* License Status Badge */}
+                            {licenseStatus && (
+                                <div 
+                                    className={`about-license-badge ${licenseStatus.status === 'licensed' ? 'active' : 'inactive'}`}
+                                    onClick={() => navigate('/activation')}
+                                    style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: licenseStatus.status === 'licensed' ? '#dcfce7' : '#fee2e2', color: licenseStatus.status === 'licensed' ? '#166534' : '#991b1b', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
+                                    title="Click to manage license"
+                                >
+                                    <Shield size={14} />
+                                    <span>
+                                        {licenseStatus.status === 'licensed'
+                                            ? `License: ${licenseStatus.daysLeft !== null && licenseStatus.daysLeft !== undefined ? `${licenseStatus.daysLeft} Days Left` : 'Active'}`
+                                            : 'License Not Active'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="about-tabs">
@@ -354,14 +328,7 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {showWhatsAppModal && (
-                <WhatsAppQRModal
-                    onClose={() => setShowWhatsAppModal(false)}
-                    onConnected={() => {
-                        setWhatsappStatus('connected');
-                    }}
-                />
-            )}
+
         </div>
     );
 };

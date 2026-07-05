@@ -9,12 +9,19 @@ const ShortcutModal = ({ onClose }) => {
             category: "Point of Sale (POS)",
             items: [
                 { key: "F1", description: "Start New Bill / Reset" },
-                { key: "Ctrl + S", description: "Save Bill / Checkout" },
-                { key: "Alt + C", description: "View Customer Details" },
-                { key: "F6 (Ctrl+ Print)", description: "Checkout with Cash" },
-                { key: "F7 (Ctrl+ Print)", description: "Checkout with UPI" },
-                { key: "F8 (Ctrl+ Print)", description: "Checkout with Card" },
-                { key: "Enter", description: "Add Item (Barcode Focus)" }
+                { key: "Ctrl + S", description: "Save Bill (No Print)" },
+                { key: "Ctrl + Enter", description: "Save & Print Bill" },
+                { key: "Alt + C", description: "Focus Customer Search" },
+                { key: "Alt + D", description: "Focus Global Discount" },
+                { key: "` or ~", description: "Toggle Payment Modes" },
+                { key: "F6", description: "Checkout with Cash" },
+                { key: "F7", description: "Checkout with UPI" },
+                { key: "F8", description: "Checkout with Card" },
+                { key: "Arrow Up / Down", description: "Navigate Cart Items" },
+                { key: "+ or -", description: "Adjust highlighted item Qty" },
+                { key: "Ctrl + + / -", description: "Adjust last added item Qty" },
+                { key: "Delete", description: "Remove highlighted item" },
+                { key: "Esc", description: "Reset Search / Close Modals" }
             ]
         },
         {

@@ -66,7 +66,7 @@ router.get('/summary', verifyToken, checkPermission('dashboard.view'), async (re
             itemsTotal
         ] = await Promise.all([
             // Gross Sales
-            db.query(`SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE ${dateWhereClause}`, dateQueryParam),
+            db.query(`SELECT COALESCE(SUM(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)), 0) as total FROM sales WHERE ${dateWhereClause}`, dateQueryParam),
             // Bill Count
             db.query(`SELECT COUNT(*) as count FROM sales WHERE ${dateWhereClause}`, dateQueryParam),
             // Low Stock Count
@@ -183,7 +183,7 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
             db.query(`
                 SELECT 
                     DATE(created_at) as date, 
-                    SUM(total_amount) as total,
+                    SUM(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)) as total,
                     COUNT(*) as count
                 FROM sales 
                 WHERE ${dateWhereClause}
@@ -227,7 +227,7 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
                     MAX(s.created_at) as last_visit,
                     DATEDIFF(NOW(), MAX(s.created_at)) as days_since,
                     COUNT(s.id) as total_bills,
-                    SUM(s.total_amount) as lifetime_spend
+                    SUM(s.total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_method = 'credit_note'), 0)) as lifetime_spend
                 FROM customers c
                 JOIN sales s ON c.id = s.customer_id
                 GROUP BY c.id
@@ -354,7 +354,7 @@ router.get('/staff-performance', verifyToken, checkPermission('dashboard.view'),
             SELECT 
                 u.name, 
                 COUNT(*) as bills, 
-                SUM(s.total_amount) as revenue
+                SUM(s.total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_method = 'credit_note'), 0)) as revenue
             FROM sales s
             JOIN users u ON s.user_id = u.id
             WHERE s.created_at >= ?
@@ -417,7 +417,7 @@ router.get('/customer-analytics', verifyToken, checkPermission('dashboard.view')
                     c.name, 
                     c.phone,
                     COUNT(s.id) as order_count,
-                    SUM(s.total_amount) as total_spent
+                    SUM(s.total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_method = 'credit_note'), 0)) as total_spent
                 FROM sales s
                 JOIN customers c ON s.customer_id = c.id
                 WHERE ${sDateWhereClause}
@@ -432,7 +432,7 @@ router.get('/customer-analytics', verifyToken, checkPermission('dashboard.view')
                     c.name, 
                     c.phone,
                     COUNT(s.id) as order_count,
-                    SUM(s.total_amount) as total_spent
+                    SUM(s.total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_method = 'credit_note'), 0)) as total_spent
                 FROM sales s
                 JOIN customers c ON s.customer_id = c.id
                 WHERE ${sDateWhereClause}
@@ -507,7 +507,7 @@ router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), as
             db.query(`
                 SELECT 
                     HOUR(created_at) as hour, 
-                    SUM(total_amount) as revenue,
+                    SUM(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)) as revenue,
                     COUNT(id) as bills
                 FROM sales 
                 WHERE created_at >= ? AND created_at < ?
@@ -545,14 +545,14 @@ router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), as
             db.query(`
                 SELECT 
                     SUM(discount_total) + SUM(coupon_amount) + SUM(loyalty_amount) as total_discount_given,
-                    AVG(total_amount) as avg_checkout
+                    AVG(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)) as avg_checkout
                 FROM sales
                 WHERE created_at >= ? AND created_at < ?
             `, [startTodayStr, endTodayStr]),
 
             // 5. Typical Average Checkout (Last 30 Days)
             db.query(`
-                SELECT AVG(total_amount) as typical_checkout
+                SELECT AVG(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)) as typical_checkout
                 FROM sales
                 WHERE created_at >= ? AND created_at < ?
             `, [thirtyDaysAgoStr, startTodayStr]),

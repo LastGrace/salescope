@@ -140,11 +140,14 @@
 
 /* ===== Invoice Meta Info ===== */
 .bill-meta-section {
-    background: linear-gradient(135deg, rgba(212, 165, 116, 0.1), rgba(212, 165, 116, 0.05));
-    border: 1px solid rgba(212, 165, 116, 0.3);
+    background: linear-gradient(135deg, rgba(212, 165, 116, 0.08), rgba(212, 165, 116, 0.03));
+    border: 1px dashed #d4a574;
     border-radius: 8px;
     padding: 14px 16px;
     margin: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .bill-meta-row {
@@ -154,15 +157,27 @@
     font-size: 12px;
 }
 
-.bill-meta-row:last-child {
+.bill-meta-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    border-bottom: 1px dotted rgba(212, 165, 116, 0.2);
+    padding-bottom: 6px;
+}
+
+.bill-meta-row:last-child,
+.bill-meta-item:last-child {
     margin-bottom: 0;
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
 .bill-meta-label {
     color: #8B4513;
     font-weight: 700;
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: 0.75rem;
     letter-spacing: 0.5px;
 }
 

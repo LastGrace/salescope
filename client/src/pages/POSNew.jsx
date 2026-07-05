@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Trash, User, CreditCard, Banknote, Smartphone, Printer, CheckCircle, Edit, Eye, Plus, ShoppingCart, RotateCcw, Share2, PauseCircle, LayoutList, Play, X, Gift, PlusCircle, Barcode, Phone, PanelRightClose, PanelRightOpen, ArrowRight, FileText } from 'lucide-react';
+import { Search, Trash, User, CreditCard, Banknote, Smartphone, Printer, CheckCircle, Edit, Eye, Plus, ShoppingCart, RotateCcw, Share2, PauseCircle, LayoutList, Play, X, Gift, PlusCircle, Barcode, Phone, PanelRightClose, PanelRightOpen, ArrowRight, FileText, ListOrdered } from 'lucide-react';
 
 
 import '../styles/POSNew.css';
@@ -16,6 +16,8 @@ import QuantityInput from '../components/QuantityInput';
 const POSNew = () => {
     // --- State Management ---
     const [products, setProducts] = useState([]);
+    const [activeCartIndex, setActiveCartIndex] = useState(-1);
+    const [isCheckingOut, setIsCheckingOut] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
     const [editingSaleId, setEditingSaleId] = useState(null);
@@ -170,10 +172,36 @@ const POSNew = () => {
 
     const removeCreditNote = () => setAppliedCreditNote(null);
 
+    const clearWholeState = React.useCallback(() => {
+        clearCart(); // Context handles cart, customer, coupon, payments
+        setCustomerHistory([]);
+        setCustomerCreditNotes([]);
+        setCustomerCreditBills([]);
+
+        // Reset local split payment state
+        setIsSplitPayment(false);
+        setSplitAmounts({ cash: '', card: '', upi: '', pay_later: '' });
+
+        // Reset Inputs
+        setBarcodeInput('');
+        setProductSearchInput('');
+        setCustomerNameInput('');
+        setCustomerPhoneInput('');
+
+        setEditingSaleId(null);
+        setCouponCode('');
+        // Reset date to today on new bill (Local Time)
+        setBillDate(new Date().toLocaleDateString('en-CA'));
+        fetchNextBillId();
+        setIsRightSidebarOpen(false);
+    }, [clearCart]);
 
     // --- Handlers ---
     const handleCheckout = React.useCallback(async (shouldPrint = false, paymentMethodOverride = null) => {
+        if (isCheckingOut) return;
         if (cart.length === 0) return toast.error('Cart is empty');
+
+        setIsCheckingOut(true);
 
         let payments = [];
 
@@ -188,8 +216,6 @@ const POSNew = () => {
                 const el = document.querySelector(`[data-split-method="${m}"]`);
                 domSplit[m] = el ? el.value : '';
             });
-            console.log('[Split Debug] React state:', JSON.stringify(splitAmounts));
-            console.log('[Split Debug] DOM values:', JSON.stringify(domSplit));
 
             // Use DOM values (most reliable) with React state as fallback
             const sa = {
@@ -204,9 +230,11 @@ const POSNew = () => {
                 (parseFloat(sa.upi) || 0) +
                 (parseFloat(sa.pay_later) || 0);
 
-            if (Math.abs(totalSplit - finalTotal) > 1) {
+            if (Math.abs(totalSplit - finalTotal) > 1) { // 1 rupee tolerance
+                setIsCheckingOut(false);
                 return toast.error(`Payment mismatch. Total: ${finalTotal.toFixed(2)}, Split: ${totalSplit.toFixed(2)}`);
             }
+
             if (parseFloat(sa.cash) > 0) payments.push({ method: 'cash', amount: parseFloat(sa.cash) });
             if (parseFloat(sa.card) > 0) payments.push({ method: 'card', amount: parseFloat(sa.card) });
             if (parseFloat(sa.upi) > 0) payments.push({ method: 'upi', amount: parseFloat(sa.upi) });
@@ -258,72 +286,199 @@ const POSNew = () => {
 
             clearWholeState();
 
-            if (shouldPrint) {
-                const fullSaleRes = await axios.get(`/api/sales/${res.data.sale_id}`);
-                setViewingBill(fullSaleRes.data);
+            if (shouldPrint && res.data.sale_details) {
+                setViewingBill(res.data.sale_details);
             }
         } catch (err) {
             console.error('Checkout Error:', err);
             toast.error(err.response?.data?.message || 'Checkout failed');
+        } finally {
+            setIsCheckingOut(false);
         }
-    }, [cart, paymentMethod, isSplitPayment, finalTotal, selectedCustomer, globalDiscountAmount, appliedCoupon, loyaltyDiscountAmount, pointsToRedeem, appliedCreditNote, creditNoteDeduction, editingSaleId]);
-
-    const clearWholeState = React.useCallback(() => {
-        clearCart(); // Context handles cart, customer, coupon, payments
-        setCustomerHistory([]);
-        setCustomerCreditNotes([]);
-        setCustomerCreditBills([]);
-
-        // Reset local split payment state
-        setIsSplitPayment(false);
-        setSplitAmounts({ cash: '', card: '', upi: '', pay_later: '' });
-
-        // Reset Inputs
-        setBarcodeInput('');
-        setProductSearchInput('');
-        setCustomerNameInput('');
-        setCustomerPhoneInput('');
-
-        setEditingSaleId(null);
-        setCouponCode('');
-        // Reset date to today on new bill (Local Time)
-        setBillDate(new Date().toLocaleDateString('en-CA'));
-        fetchNextBillId();
-        setIsRightSidebarOpen(false);
-    }, [clearCart]);
+    }, [cart, paymentMethod, isSplitPayment, finalTotal, selectedCustomer, globalDiscountAmount, appliedCoupon, loyaltyDiscountAmount, pointsToRedeem, appliedCreditNote, creditNoteDeduction, editingSaleId, isCheckingOut, billDate, clearWholeState]);
 
     // --- Keyboard Shortcuts ---
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (isCheckingOut) return;
+            const activeEl = document.activeElement;
+            const isTyping = activeEl && (
+                activeEl.tagName === 'INPUT' || 
+                activeEl.tagName === 'TEXTAREA' || 
+                activeEl.isContentEditable
+            );
+
+            // Esc: Reset inputs and focus barcode input
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setBarcodeInput('');
+                setProductSearchInput('');
+                setCustomerNameInput('');
+                setCustomerPhoneInput('');
+                setShowCustomerResults(false);
+                if (barcodeInputRef.current) {
+                    barcodeInputRef.current.focus();
+                }
+                return;
+            }
+
+            // F1: Start New Bill / Reset
             if (e.key === 'F1') {
                 e.preventDefault();
                 clearWholeState();
-                toast.success('New Bill Started (F1)');
-            } else if (e.key === 'F6') {
-                e.preventDefault();
-                handleCheckout(e.ctrlKey, 'cash');
-            } else if (e.key === 'F7') {
-                e.preventDefault();
-                handleCheckout(e.ctrlKey, 'upi');
-            } else if (e.key === 'F8') {
-                e.preventDefault();
-                handleCheckout(e.ctrlKey, 'card');
-            } else if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                toast.success('New Bill Started');
+                if (barcodeInputRef.current) {
+                    barcodeInputRef.current.focus();
+                }
+                return;
+            }
+
+            // Ctrl + S: Save current bill (no print)
+            if (e.key === 's' && e.ctrlKey) {
                 e.preventDefault();
                 handleCheckout(false);
-            } else if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+                return;
+            }
+
+            // Ctrl + Enter: Save and Print
+            if (e.key === 'Enter' && e.ctrlKey) {
                 e.preventDefault();
-                if (selectedCustomer) {
-                    setShowCustomerDetailModal(true);
-                } else {
-                    toast.error('No customer selected');
+                handleCheckout(true);
+                return;
+            }
+
+            // Alt + C: Focus Customer search name field
+            if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+                e.preventDefault();
+                if (customerInputRef.current) {
+                    customerInputRef.current.focus();
+                    customerInputRef.current.select();
+                }
+                return;
+            }
+
+            // Alt + D: Focus Global Discount
+            if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+                e.preventDefault();
+                if (discountInputRef.current) {
+                    discountInputRef.current.focus();
+                    discountInputRef.current.select();
+                }
+                return;
+            }
+
+            // Backtick / Tilde: Cycle payment methods
+            if ((e.key === '`' || e.key === '~') && !isTyping) {
+                e.preventDefault();
+                const methods = ['cash', 'card', 'upi', 'pay_later'];
+                setPaymentMethod(prev => {
+                    const nextIndex = (methods.indexOf(prev) + 1) % methods.length;
+                    return methods[nextIndex];
+                });
+                return;
+            }
+
+            // F6: Instant Checkout Cash (Save & Print)
+            if (e.key === 'F6') {
+                e.preventDefault();
+                handleCheckout(true, 'cash');
+                return;
+            }
+
+            // F7: Instant Checkout UPI (Save & Print)
+            if (e.key === 'F7') {
+                e.preventDefault();
+                handleCheckout(true, 'upi');
+                return;
+            }
+
+            // F8: Instant Checkout Card (Save & Print)
+            if (e.key === 'F8') {
+                e.preventDefault();
+                handleCheckout(true, 'card');
+                return;
+            }
+
+            // Ctrl + + / Ctrl + = : Adjust quantity of highlighted or last added item
+            if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+                e.preventDefault();
+                if (cart.length > 0) {
+                    const targetIndex = (activeCartIndex !== -1 && activeCartIndex < cart.length) 
+                        ? activeCartIndex 
+                        : cart.length - 1;
+                    const targetItem = cart[targetIndex];
+                    updateQuantity(targetItem.id, targetItem.quantity + 1);
+                }
+                return;
+            }
+
+            // Ctrl + - : Adjust quantity of highlighted or last added item
+            if (e.ctrlKey && e.key === '-') {
+                e.preventDefault();
+                if (cart.length > 0) {
+                    const targetIndex = (activeCartIndex !== -1 && activeCartIndex < cart.length) 
+                        ? activeCartIndex 
+                        : cart.length - 1;
+                    const targetItem = cart[targetIndex];
+                    if (targetItem.quantity > 1) {
+                        updateQuantity(targetItem.id, targetItem.quantity - 1);
+                    }
+                }
+                return;
+            }
+
+            // Arrow down: Navigate cart
+            if (e.key === 'ArrowDown') {
+                if (cart.length > 0) {
+                    e.preventDefault();
+                    if (activeCartIndex === -1) {
+                        setActiveCartIndex(0);
+                    } else {
+                        setActiveCartIndex(prev => Math.min(prev + 1, cart.length - 1));
+                    }
+                }
+                return;
+            }
+
+            // Arrow up: Navigate cart or return to barcode search
+            if (e.key === 'ArrowUp') {
+                if (cart.length > 0 && activeCartIndex !== -1) {
+                    e.preventDefault();
+                    if (activeCartIndex === 0) {
+                        setActiveCartIndex(-1);
+                        barcodeInputRef.current?.focus();
+                    } else {
+                        setActiveCartIndex(prev => prev - 1);
+                    }
+                }
+                return;
+            }
+
+            // Highlighted cart row operations
+            if (activeCartIndex !== -1 && activeCartIndex < cart.length && !isTyping) {
+                const activeItem = cart[activeCartIndex];
+                if (e.key === '+' || e.key === '=') {
+                    e.preventDefault();
+                    updateQuantity(activeItem.id, activeItem.quantity + 1);
+                } else if (e.key === '-') {
+                    e.preventDefault();
+                    if (activeItem.quantity > 1) {
+                        updateQuantity(activeItem.id, activeItem.quantity - 1);
+                    }
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    removeFromCart(activeItem.id);
+                    setActiveCartIndex(prev => {
+                        if (cart.length <= 1) return -1;
+                        return Math.min(prev, cart.length - 2);
+                    });
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [clearWholeState, handleCheckout, selectedCustomer]);
+    }, [cart, paymentMethod, activeCartIndex, clearWholeState, handleCheckout, isCheckingOut]);
 
 
     // Handle incoming cart from Edit Bill
@@ -375,9 +530,20 @@ const POSNew = () => {
     // Wrapper for addToCart
     const addToCart = React.useCallback((product) => {
         addToCartContext(product);
+        const index = cart.findIndex(item => item.id == product.id);
+        if (index !== -1) {
+            setActiveCartIndex(index);
+        } else {
+            setActiveCartIndex(cart.length);
+        }
         setProductSearchInput('');
         setBarcodeInput('');
-    }, [addToCartContext]);
+        setTimeout(() => {
+            if (barcodeInputRef.current) {
+                barcodeInputRef.current.focus();
+            }
+        }, 50);
+    }, [addToCartContext, cart]);
 
     // --- Search & Input Handlers ---
 
@@ -458,6 +624,8 @@ const POSNew = () => {
 
     // --- Effects & Data Fetching ---
     const barcodeInputRef = useRef(null);
+    const discountInputRef = useRef(null);
+    const customerInputRef = useRef(null);
     const endOfCartRef = useRef(null);
 
     // Auto-scroll to bottom of cart when new item is added
@@ -466,6 +634,25 @@ const POSNew = () => {
             endOfCartRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
     }, [cart.length]);
+
+    // Keep activeCartIndex in bounds
+    useEffect(() => {
+        if (cart.length === 0) {
+            setActiveCartIndex(-1);
+        } else if (activeCartIndex >= cart.length) {
+            setActiveCartIndex(cart.length - 1);
+        }
+    }, [cart.length, activeCartIndex]);
+
+    // Auto-scroll selected keyboard row into view
+    useEffect(() => {
+        if (activeCartIndex !== -1) {
+            const element = document.querySelector(`.cart-item-row-${activeCartIndex}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }, [activeCartIndex]);
 
     // Initial Data Fetch
     useEffect(() => {
@@ -778,6 +965,7 @@ const POSNew = () => {
                                 <div className="posn-input-wrapper">
                                     <User className="posn-input-icon" />
                                     <input
+                                        ref={customerInputRef}
                                         className="posn-input"
                                         placeholder="Name"
                                         value={customerNameInput}
@@ -823,12 +1011,15 @@ const POSNew = () => {
                             <button className="posn-btn secondary sm" onClick={clearWholeState} title="New Order">
                                 <RotateCcw size={16} /> {!isRightSidebarOpen && <span className="hide-mobile">New</span>}
                             </button>
-                            <button className="posn-btn secondary sm" onClick={holdBill} title="Hold">
-                                <PauseCircle size={16} /> {!isRightSidebarOpen && <span className="hide-mobile">Hold</span>}
-                            </button>
-                            <button className="posn-btn secondary sm" onClick={() => setShowHeldBillsModal(true)} title="Unhold">
-                                <LayoutList size={16} /> {!isRightSidebarOpen && <span className="hide-mobile">Unhold ({heldBills.length})</span>}
-                            </button>
+                            <div className="posn-split-btn-group">
+                                <button className="posn-btn secondary sm split-main" onClick={holdBill} title="Hold">
+                                    <PauseCircle size={16} /> {!isRightSidebarOpen && <span className="hide-mobile">Hold</span>}
+                                </button>
+                                <button className="posn-btn secondary sm split-icon" onClick={() => setShowHeldBillsModal(true)} title={`Unhold (${heldBills.length})`}>
+                                    <ListOrdered size={16} />
+                                    {heldBills.length > 0 && <span className="posn-badge mini hold-badge">{heldBills.length}</span>}
+                                </button>
+                            </div>
 
 
 
@@ -884,7 +1075,11 @@ const POSNew = () => {
                             </thead>
                             <tbody>
                                 {cart.map((item, index) => (
-                                    <tr key={item.id}>
+                                    <tr 
+                                        key={item.id}
+                                        className={`cart-item-row-${index} ${activeCartIndex === index ? 'active-keyboard-row' : ''}`}
+                                        onClick={() => setActiveCartIndex(index)}
+                                    >
                                         <td className="col-idx">{index + 1}</td>
                                         <td className="col-barcode">
                                             {item.isManual ? (
@@ -963,18 +1158,21 @@ const POSNew = () => {
                     <div className="footer-promos-area">
                         <div className="discount-row">
                             <div className="global-discount-box card-style">
-                                <label>Global Discount</label>
+                                <div className="discount-header-row">
+                                    <label>Discount</label>
+                                    <div className="posn-toggle-group mini">
+                                        <button className={globalDiscountType === 'rs' ? 'active' : ''} onClick={() => updateGlobalDiscountType('rs')}>₹</button>
+                                        <button className={globalDiscountType === '%' ? 'active' : ''} onClick={() => updateGlobalDiscountType('%')}>%</button>
+                                    </div>
+                                </div>
                                 <div className="discount-inputs">
                                     <input
+                                        ref={discountInputRef}
                                         type="number"
                                         value={globalDiscountValue}
                                         onChange={e => updateGlobalDiscountValue(e.target.value)}
                                         placeholder="0.00"
                                     />
-                                    <div className="posn-toggle-group">
-                                        <button className={globalDiscountType === 'rs' ? 'active' : ''} onClick={() => updateGlobalDiscountType('rs')}>₹</button>
-                                        <button className={globalDiscountType === '%' ? 'active' : ''} onClick={() => updateGlobalDiscountType('%')}>%</button>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1006,7 +1204,10 @@ const POSNew = () => {
                         </div>
 
                         <div className="promotions-box">
-                            <label>Promotions</label>
+                            <div className="promo-header-row">
+                                <label>Promotions</label>
+                                {selectedCustomer && <span className="avail-pts-info">Avail: {Number(selectedCustomer.loyalty_points).toFixed(2)} pts</span>}
+                            </div>
                             <div className="promo-inputs">
                                 {appliedCoupon ? (
                                     <div className="applied-promo-pill">
@@ -1015,7 +1216,6 @@ const POSNew = () => {
                                     </div>
                                 ) : (
                                     <div className="promo-input-group">
-                                        <div className="loyalty-header"></div> {/* Spacer to match loyalty height */}
                                         <div className="input-row">
                                             <input
                                                 placeholder="Coupon"
@@ -1028,9 +1228,6 @@ const POSNew = () => {
                                 )}
 
                                 <div className="promo-input-group loyalty">
-                                    <div className="loyalty-header">
-                                        {selectedCustomer && <span className="avail-pts-info">Avail: {Number(selectedCustomer.loyalty_points).toFixed(2)} pts</span>}
-                                    </div>
                                     <div className="input-row">
                                         <input
                                             type="number"
@@ -1144,15 +1341,14 @@ const POSNew = () => {
                             )}
 
                             {/* Date Selector Card */}
-                            <div className="date-selector-card" >
-
+                            <div className="date-selector-card" style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
                                 <input
                                     type="date"
                                     className="posn-input"
                                     value={billDate}
                                     onChange={(e) => setBillDate(e.target.value)}
                                     max={new Date().toISOString().split('T')[0]}
-                                    style={{ width: '40%', height: '36px', display: 'flex', justifyContent: 'center', alignItems: 'center', justifySelf: 'center', alignSelf: 'center' }}
+                                    style={{ width: 'auto', minWidth: '140px', height: '36px', cursor: 'pointer' }}
                                 />
                             </div>
                         </div>
@@ -1161,20 +1357,20 @@ const POSNew = () => {
                     <div className="posn-footer-checkout">
                         <div className="summary-section checkout-summary">
                             <div className="summary-item">
-                                <label>Total Items</label>
+                                <label>Items</label>
                                 <div className="value">{cart.length}</div>
                             </div>
                             <div className="summary-item">
-                                <label>Total Qty</label>
+                                <label>Qty</label>
                                 <div className="value">{totalQty}</div>
                             </div>
                             <div className="summary-item">
-                                <label>Net Total</label>
-                                <div className="value">₹{subtotal.toFixed(2)}</div>
+                                <label>Total</label>
+                                <div className="value">{subtotal.toFixed(2)}</div>
                             </div>
                             <div className="summary-item">
-                                <label>Savings</label>
-                                <div className="value discount">-₹{(itemDiscountsSum + globalDiscountAmount + couponDiscountAmount + loyaltyDiscountAmount + creditNoteDeduction).toFixed(2)}</div>
+                                <label>Disc.</label>
+                                <div className="value discount">{(itemDiscountsSum + globalDiscountAmount + couponDiscountAmount + loyaltyDiscountAmount + creditNoteDeduction).toFixed(2)}</div>
                             </div>
                         </div>
                         <div className="final-amount">
@@ -1182,11 +1378,19 @@ const POSNew = () => {
                             <div className="total-value">₹{finalTotalRounded.toFixed(2)}</div>
                         </div>
                         <div className="checkout-btns">
-                            <button className="posn-checkout-btn secondary" onClick={() => handleCheckout(true)}>
-                                <Printer size={18} /> <span>Print</span>
+                            <button 
+                                className="posn-checkout-btn secondary" 
+                                onClick={() => handleCheckout(true)}
+                                disabled={isCheckingOut}
+                            >
+                                <Printer size={18} /> <span>{isCheckingOut ? 'Printing...' : 'Print'}</span>
                             </button>
-                            <button className="posn-checkout-btn primary" onClick={() => handleCheckout(false)}>
-                                <ArrowRight size={20} /> <span>Save</span>
+                            <button 
+                                className="posn-checkout-btn primary" 
+                                onClick={() => handleCheckout(false)}
+                                disabled={isCheckingOut}
+                            >
+                                <ArrowRight size={20} /> <span>{isCheckingOut ? 'Saving...' : 'Save'}</span>
                             </button>
                         </div>
                     </div>

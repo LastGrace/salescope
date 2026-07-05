@@ -21,7 +21,105 @@
     }
 }
 
+/* ===== Campaign Banner ===== */
+.wa-campaign-banner {
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.wa-campaign-banner.running {
+    background: rgba(37, 211, 102, 0.08);
+    border-color: rgba(37, 211, 102, 0.3);
+}
+.wa-campaign-banner.done {
+    background: rgba(37, 211, 102, 0.05);
+    border-color: rgba(37, 211, 102, 0.2);
+}
+.wa-campaign-banner.cancelled {
+    background: rgba(220, 53, 69, 0.06);
+    border-color: rgba(220, 53, 69, 0.25);
+}
+.wa-campaign-banner-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.wa-campaign-banner-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary, #e2e8f0);
+}
+.wa-campaign-banner-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+.wa-cancel-btn,
+.wa-refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+.wa-cancel-btn {
+    background: rgba(220, 53, 69, 0.15);
+    color: #ff6b6b;
+}
+.wa-cancel-btn:hover {
+    background: rgba(220, 53, 69, 0.3);
+}
+.wa-refresh-btn {
+    background: rgba(100, 116, 139, 0.2);
+    color: var(--text-secondary, #94a3b8);
+}
+.wa-refresh-btn:hover {
+    background: rgba(100, 116, 139, 0.35);
+}
+.wa-progress-bar-track {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.wa-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #25d366, #128c7e);
+    border-radius: 99px;
+    transition: width 0.5s ease;
+}
+.wa-campaign-logs {
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.78rem;
+    padding-right: 4px;
+}
+.wa-bg-note {
+    font-size: 0.78rem;
+    color: #25d366;
+    margin-top: 0.5rem;
+    text-align: center;
+    opacity: 0.85;
+}
+
 /* ===== Header ===== */
+
 .whatsapp-header {
     display: flex;
     justify-content: space-between;

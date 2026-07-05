@@ -343,3 +343,32 @@
     background: var(--border);
     border-radius: 10px;
 }
+
+/* Responsive Design for smaller screens like 1080x768 with sidebar open */
+@media (max-width: 1200px) {
+    .barcode-main-layout {
+        grid-template-columns: 1fr 320px;
+        gap: 1.5rem;
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 950px) {
+    .barcode-main-layout {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+    }
+    
+    .barcode-left-panel {
+        overflow: visible;
+        min-height: 400px;
+    }
+
+    .barcode-right-panel {
+        overflow-y: visible;
+    }
+    
+    .barcode-preview-container {
+        min-height: 250px;
+    }
+}

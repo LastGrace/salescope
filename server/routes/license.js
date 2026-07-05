@@ -71,4 +71,24 @@ router.post('/deactivate', async (req, res) => {
     }
 });
 
+// Sync license (force network check)
+router.post('/sync', async (req, res) => {
+    try {
+        const validation = await getLicenseStatus(true); // true forces sync
+        const hwid = getHardwareProfile();
+        
+        res.json({
+            success: true,
+            status: validation.status,
+            reason: validation.reason,
+            daysLeft: validation.daysLeft !== undefined ? validation.daysLeft : null,
+            payload: validation.payload || null,
+            hwid
+        });
+    } catch (error) {
+        console.error('[License Router POST Sync Error]', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

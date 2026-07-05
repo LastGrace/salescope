@@ -36,7 +36,7 @@ const RESOURCES_DIR = IS_PACKAGED
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const WA_AUTH_DIR = path.join(DATA_DIR, '.wwebjs_auth');
+const WA_AUTH_DIR = path.join(DATA_DIR, '.baileys_auth');
 
 // ── Writable files ─────────────────────────────────────────────────
 const CONFIG_FILE = path.join(DATA_DIR, 'backup-config.json');
@@ -55,10 +55,6 @@ const CLIENT_DIST = IS_PACKAGED
 const CLIENT_PUBLIC = IS_PACKAGED
     ? path.join(RESOURCES_DIR, 'client', 'dist')   // In prod, public assets are in dist
     : path.join(SERVER_DIR, '..', 'client', 'public');
-
-const CHROMIUM_PATH = IS_PACKAGED
-    ? path.join(RESOURCES_DIR, 'server', 'chromium', 'chrome.exe')
-    : path.join(SERVER_DIR, 'chromium', 'chrome.exe');
 
 const SAMPLE_FILES_DIR = IS_PACKAGED
     ? path.join(RESOURCES_DIR, 'server')
@@ -87,6 +83,5 @@ module.exports = {
     SCHEMA_PATH,
     CLIENT_DIST,
     CLIENT_PUBLIC,
-    CHROMIUM_PATH,
     SAMPLE_FILES_DIR,
 };

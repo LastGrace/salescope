@@ -1,66 +1,84 @@
 const path = require('path');
 const fs = require('fs');
-const { CHROMIUM_PATH, WA_AUTH_DIR } = require('../paths');
-
-let Client, LocalAuth, MessageMedia, QRCode;
-function loadWaCore() {
-    if (!Client) {
-        const wa = require('whatsapp-web.js');
-        Client = wa.Client;
-        LocalAuth = wa.LocalAuth;
-        MessageMedia = wa.MessageMedia;
-        QRCode = require('qrcode');
-    }
-}
+const EventEmitter = require('events');
+const waEvents = new EventEmitter();
+const pino = require('pino');
+const { WA_AUTH_DIR } = require('../paths');
 
 let clientInstance = null;
 let qrCodeData = null;
-let ready = false;
-let isAuthenticated = false;
-let heartbeatTimer = null;
+let connectionStatus = 'disconnected';
 let reconnectTimer = null;
 let isInitializing = false;
+let isDestroying = false; // Flag to prevent zombie reconnects
+let Baileys = null; // Dynamically imported module
+let reconnectAttempts = 0;
 
-// Stop heartbeat & reconnect timers
-const stopTimers = () => {
-    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+// Set level to 'warn' to capture critical connection or crypto errors without spam
+const logger = pino({ level: 'warn' });
+
+// --- QUEUE SYSTEM ---
+const messageQueue = [];
+let isProcessingQueue = false;
+
+const processQueue = async () => {
+    if (isProcessingQueue) return;
+    isProcessingQueue = true;
+
+    while (messageQueue.length > 0) {
+        const job = messageQueue.shift();
+        try {
+            const sentMsg = await job.execute();
+            job.resolve({ delivered: true, msgId: sentMsg?.key?.id || 'unknown' });
+        } catch (err) {
+            job.reject(err);
+        }
+        // Delay 2.5 seconds between messages
+        if (messageQueue.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 2500));
+        }
+    }
+    isProcessingQueue = false;
 };
 
-// Auto-reconnect after disconnect
-const scheduleReconnect = (delayMs = 30000) => {
+const enqueueMessage = (executeFn) => {
+    return new Promise((resolve, reject) => {
+        messageQueue.push({ execute: executeFn, resolve, reject });
+        processQueue();
+    });
+};
+// --------------------
+
+const stopTimers = () => {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+};
+
+const scheduleReconnect = () => {
     stopTimers();
-    console.log(`[WA] Scheduling auto-reconnect in ${delayMs / 1000}s...`);
+    // Exponential backoff: 5s, 10s, 20s, 40s... max 5 mins
+    const delayMs = Math.min(5000 * Math.pow(2, reconnectAttempts), 300000);
+    console.log(`[WA] Scheduling auto-reconnect in ${delayMs / 1000}s (Attempt ${reconnectAttempts + 1})...`);
+    
     reconnectTimer = setTimeout(async () => {
-        if (!clientInstance) {
+        if (!clientInstance || connectionStatus !== 'connected') {
             console.log('[WA] Auto-reconnecting...');
-            try { await initWhatsApp(); } catch (e) { console.error('[WA] Auto-reconnect failed:', e.message); }
+            try {
+                reconnectAttempts++;
+                await initWhatsApp();
+            } catch (e) {
+                console.error('[WA] Auto-reconnect failed:', e.message);
+            }
         }
     }, delayMs);
 };
 
-// Heartbeat: verify page is alive every 90s
-const startHeartbeat = (client) => {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(async () => {
-        if (!clientInstance) { clearInterval(heartbeatTimer); return; }
-        try {
-            await client.getState();
-        } catch (e) {
-            console.warn('[WA] Heartbeat failed — triggering reconnect:', e.message);
-            ready = false;
-            isAuthenticated = false;
-            clientInstance = null;
-            try { await client.destroy(); } catch (_) { }
-            scheduleReconnect(10000);
-        }
-    }, 90000);
-};
-
-// Initialize WhatsApp Client
 const initWhatsApp = async () => {
-    if (clientInstance) {
-        console.log('[WA] Client already initialized. Skipping.');
+    isDestroying = false;
+    if (clientInstance && connectionStatus === 'connected') {
+        console.log('[WA] Client already connected. Skipping.');
         return;
     }
     if (isInitializing) {
@@ -68,140 +86,125 @@ const initWhatsApp = async () => {
         return;
     }
     isInitializing = true;
+    connectionStatus = 'initializing';
+    qrCodeData = null;
+    waEvents.emit('status_change', connectionStatus);
+    waEvents.emit('qr_change', qrCodeData);
 
     try {
-        console.log('[WA] Initializing WhatsApp Client...');
-
-        const chromePath = CHROMIUM_PATH;
-        console.log('[WA] Using Chrome at:', chromePath);
-
-        // Prevent "browser is already running" error by removing session lock
-        const sessionDir = path.join(WA_AUTH_DIR, 'session-ims_v1');
-        const lockFile = path.join(sessionDir, 'SingletonLock');
-        
-        if (fs.existsSync(lockFile)) {
-            try {
-                // Try to remove it multiple times or wait a bit
-                fs.unlinkSync(lockFile);
-                console.log('[WA] Removed SingletonLock file.');
-            } catch (e) {
-                console.warn('[WA] Failed to remove SingletonLock:', e.message);
-                // If it's locked by another process, we might still fail later, 
-                // but sometimes it's just a stale handle.
-            }
+        if (!Baileys) {
+            Baileys = await import('@whiskeysockets/baileys');
         }
 
-        loadWaCore();
+        console.log('[WA] Initializing WhatsApp Client (Baileys)...');
 
-        const client = new Client({
-            authStrategy: new LocalAuth({ clientId: 'ims_v1', dataPath: WA_AUTH_DIR }),
-            webVersionCache: {
-                type: 'remote',
-                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-            },
-            puppeteer: {
-                executablePath: chromePath,
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer',
-                    '--disable-features=VizDisplayCompositor',
-                    '--disable-extensions',
-                    '--disable-component-extensions-with-background-pages',
-                    '--disable-default-apps',
-                    '--mute-audio',
-                    '--no-default-browser-check',
-                    '--no-first-run',
-                    '--disable-background-networking',
-                    '--disable-background-timer-throttling',
-                    '--disable-backgrounding-occluded-windows',
-                    '--disable-breakpad',
-                    '--disable-client-side-phishing-detection',
-                    '--disable-hang-monitor',
-                    '--disable-ipc-flooding-protection',
-                    '--disable-notifications',
-                    '--disable-prompt-on-repost',
-                    '--disable-renderer-backgrounding',
-                    '--disable-sync'
-                ]
+        // Ensure auth dir exists
+        if (!fs.existsSync(WA_AUTH_DIR)) {
+            fs.mkdirSync(WA_AUTH_DIR, { recursive: true });
+        }
+
+        const { state, saveCreds } = await Baileys.useMultiFileAuthState(WA_AUTH_DIR);
+        const { version } = await Baileys.fetchLatestBaileysVersion();
+
+        const sock = Baileys.makeWASocket({
+            version,
+            logger,
+            printQRInTerminal: false,
+            auth: state,
+            browser: ['Salescope', 'Desktop', '1.0.0']
+        });
+
+        clientInstance = sock;
+
+        sock.ev.on('creds.update', saveCreds);
+
+        sock.ev.on('connection.update', (update) => {
+            if (isDestroying) return; // Prevent zombie events during restart/logout
+
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                console.log('[WA] QR RECEIVED');
+                qrCodeData = qr;
+                connectionStatus = 'qr_received';
+                waEvents.emit('status_change', connectionStatus);
+                waEvents.emit('qr_change', qrCodeData);
+            }
+
+            if (connection === 'close') {
+                const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== Baileys.DisconnectReason.loggedOut;
+                console.log('[WA] Client was logged out or disconnected', { reason: lastDisconnect?.error?.message || lastDisconnect?.error });
+                connectionStatus = 'disconnected';
+                qrCodeData = null;
+                clientInstance = null;
+                waEvents.emit('status_change', connectionStatus);
+                waEvents.emit('qr_change', qrCodeData);
+
+                if (shouldReconnect) {
+                    scheduleReconnect();
+                } else {
+                    // It was an explicit logout
+                    console.log('[WA] Explicit logout detected. Clearing session...');
+                    if (fs.existsSync(WA_AUTH_DIR)) {
+                        fs.rmSync(WA_AUTH_DIR, { recursive: true, force: true });
+                    }
+                }
+            } else if (connection === 'connecting') {
+                if (!qr) { // don't override if a QR just came in the same event
+                    console.log('[WA] Client is connecting...');
+                    connectionStatus = 'connecting';
+                    waEvents.emit('status_change', connectionStatus);
+                }
+            } else if (connection === 'open') {
+                console.log('[WA] Client is connected!');
+                reconnectAttempts = 0; // Reset attempts on successful connection
+                connectionStatus = 'connected';
+                qrCodeData = null;
+                waEvents.emit('status_change', connectionStatus);
+                waEvents.emit('qr_change', qrCodeData);
+                stopTimers();
             }
         });
 
-        // Set instance immediately so status moves from 'disconnected' to 'initializing'
-        clientInstance = client;
+        sock.ev.on('messages.update', (updates) => {
+            if (isDestroying) return;
 
-        client.on('qr', (qr) => {
-            console.log('[WA] QR RECEIVED', qr);
-            qrCodeData = qr; // Save QR to variable
-            isAuthenticated = false;
-            ready = false;
+            for (const update of updates) {
+                if (update.update.status) {
+                    sock.ev.emit('msg_ack', update);
+                    // Emit event for the rest of the application
+                    waEvents.emit('message_status', {
+                        msgId: update.key.id,
+                        status: update.update.status
+                    });
+                }
+            }
         });
 
-        client.on('ready', () => {
-            console.log('[WA] Client is ready!');
-            ready = true;
-            isAuthenticated = true;
-            qrCodeData = null; // Clear QR code once authenticated
-        });
-
-        client.on('authenticated', () => {
-            console.log('[WA] Client is authenticated!');
-            isAuthenticated = true;
-            qrCodeData = null; // Clear QR code immediately
-        });
-
-        client.on('auth_failure', (msg) => {
-            console.error('[WA] AUTHENTICATION FAILURE', msg);
-            isAuthenticated = false;
-            ready = false;
-            clientInstance = null;
-        });
-
-        client.on('disconnected', async (reason) => {
-            console.log('[WA] Client was logged out', reason);
-            ready = false;
-            isAuthenticated = false;
-            stopTimers();
-            try { await client.destroy(); } catch (e) { console.error('[WA] Error destroying client:', e); }
-            clientInstance = null;
-            // Auto-reconnect after 30s unless it was an explicit logout
-            if (reason !== 'LOGOUT') scheduleReconnect(30000);
-        });
-
-        // DO NOT await this here — let it run in background so API/UI stays responsive
-        client.initialize().then(() => {
-            console.log('[WA] Background initialization finished.');
-            startHeartbeat(client);
-        }).catch(err => {
-            console.error('[WA] Client initialization failed:', err);
-            clientInstance = null;
-            scheduleReconnect(15000);
-        }).finally(() => {
-            isInitializing = false;
-        });
+        isInitializing = false;
 
     } catch (err) {
         console.error('[WA] Client creation failed:', err);
         clientInstance = null;
+        connectionStatus = 'disconnected';
         isInitializing = false;
-        scheduleReconnect(15000);
+        waEvents.emit('status_change', connectionStatus);
+        scheduleReconnect();
     }
 };
 
-/**
- * Check if a session already exists and initialize automatically.
- */
 const autoInitIfPossible = async () => {
-    const sessionDir = path.join(WA_AUTH_DIR, 'session-ims_v1');
-    if (fs.existsSync(sessionDir)) {
-        console.log('[WA] Found existing session folder. Attempting auto-init...');
-        // Small delay to ensure everything else is ready
-        setTimeout(() => {
-            initWhatsApp().catch(e => console.error('[WA] Auto-init failed:', e.message));
-        }, 2000);
+    if (fs.existsSync(WA_AUTH_DIR)) {
+        // Checking if there's a valid session folder containing creds.json
+        const credsFile = path.join(WA_AUTH_DIR, 'creds.json');
+        if (fs.existsSync(credsFile)) {
+            console.log('[WA] Found existing session folder. Attempting auto-init...');
+            setTimeout(() => {
+                initWhatsApp().catch(e => console.error('[WA] Auto-init failed:', e.message));
+            }, 2000);
+        } else {
+            console.log('[WA] No existing creds found. Waiting for manual start.');
+        }
     } else {
         console.log('[WA] No existing session found. Waiting for manual start.');
     }
@@ -212,12 +215,7 @@ const getQr = () => {
 };
 
 const getStatus = () => {
-    // Note: 'ready' can take very long with accounts that have many messages
-    // 'authenticated' means the session is valid and messaging typically works
-    if (ready || isAuthenticated) return 'connected';
-    if (qrCodeData) return 'qr_received';
-    if (clientInstance) return 'initializing';
-    return 'disconnected';
+    return connectionStatus;
 };
 
 const getClient = () => {
@@ -225,145 +223,97 @@ const getClient = () => {
 };
 
 /**
- * Send text message and wait for delivery confirmation (ACK >= 2)
- * ACK levels: 0=PENDING, 1=SENT(single tick), 2=RECEIVED(double tick), 3=READ(blue ticks)
- * @param {string} phone
- * @param {string} message
- * @param {number} timeoutMs - how long to wait for delivery ack (default 15s)
- * @returns {Promise<{delivered: boolean, msgId: string}>}
+ * Format phone number to Baileys format
+ */
+const formatPhone = (phone) => {
+    let sanitized = phone.replace(/\D/g, '');
+    if (!sanitized.endsWith('@s.whatsapp.net')) {
+        sanitized = `${sanitized}@s.whatsapp.net`;
+    }
+    return sanitized;
+};
+
+/**
+ * Send text message asynchronously using Job Queue
  */
 const sendText = async (phone, message, timeoutMs = 15000) => {
-    if (!clientInstance) {
-        console.error('[WA] sendText failed: ClientInstance is null');
-        throw new Error("WhatsApp client not initialized");
-    }
-    loadWaCore();
-    const sanitizedPhone = phone.replace(/\D/g, '');
-    const chatId = sanitizedPhone + "@c.us";
-    console.log(`[WA] Preparing to send text to ${chatId}`);
+    return enqueueMessage(async () => {
+        if (!clientInstance || connectionStatus !== 'connected') {
+            console.error('[WA] sendText failed: Client is not connected');
+            throw new Error("WhatsApp client not connected");
+        }
 
-    return new Promise(async (resolve, reject) => {
-        let settled = false;
-        let sentMsgId = null;
-        const pendingAcks = new Map(); // Store ACKs that arrive before sentMsgId is known
-
-        const onAck = (msg, ack) => {
-            const currentId = msg.id._serialized;
-            if (sentMsgId) {
-                if (currentId === sentMsgId && ack >= 2) {
-                    console.log(`[WA] Targeted ACK received for ${currentId}: level ${ack}`);
-                    settled = true;
-                    clientInstance.removeListener('message_ack', onAck);
-                    resolve({ delivered: true, msgId: sentMsgId });
-                }
-            } else {
-                // Buffer the ACK if we don't know the ID yet
-                pendingAcks.set(currentId, ack);
-            }
-        };
-
-        // Attach listener BEFORE sending, to avoid missing instant ACKs
-        clientInstance.on('message_ack', onAck);
+        const chatId = formatPhone(phone);
+        console.log(`[WA] Preparing to send text to ${chatId}`);
 
         try {
             console.log(`[WA] Dispatching sendMessage to ${chatId}`);
-            const sentMsg = await clientInstance.sendMessage(chatId, message);
-            sentMsgId = sentMsg.id._serialized;
-            console.log(`[WA] Message dispatched. MsgId: ${sentMsgId}. Checking pending ACKs...`);
-
-            // Check if we already received an ACK for this ID while sendMessage was in flight
-            if (pendingAcks.has(sentMsgId)) {
-                const ack = pendingAcks.get(sentMsgId);
-                console.log(`[WA] Found buffered ACK for ${sentMsgId}: level ${ack}`);
-                if (ack >= 2) {
-                    settled = true;
-                    clientInstance.removeListener('message_ack', onAck);
-                    resolve({ delivered: true, msgId: sentMsgId });
-                }
-            }
+            const sentMsg = await clientInstance.sendMessage(chatId, { text: message });
+            console.log(`[WA] Message dispatched to server. MsgId: ${sentMsg?.key?.id}`);
+            return sentMsg;
         } catch (err) {
             console.error(`[WA] sendMessage error for ${chatId}:`, err);
-            clientInstance.removeListener('message_ack', onAck);
-
-            // AUTO-RECOVERY: Detect if the browser engine has crashed/detached
-            const errorMsg = err.message || "";
-            if (errorMsg.includes('detached Frame') || errorMsg.includes('Execution context was destroyed')) {
-                console.warn('[WA] Stale browser context detected. Triggering self-healing restart...');
-                const staleClient = clientInstance;
-                clientInstance = null; // Mark as null immediately to prevent further calls
-                ready = false;
-                isAuthenticated = false;
-
-                try {
-                    await staleClient.destroy();
-                } catch (e) {
-                    console.error('[WA] Error during emergency destroy:', e);
-                }
-
-                // Silent restart
-                initWhatsApp().catch(e => console.error('[WA] Emergency restart failed:', e));
-
-                return reject(new Error("WhatsApp service encountered a frame error and is restarting. Please try again in a few seconds."));
-            }
-
-            return reject(err);
+            throw err;
         }
-
-        // Timeout fallback
-        setTimeout(() => {
-            if (!settled) {
-                clientInstance.removeListener('message_ack', onAck);
-                console.warn(`[WA] ACK timeout for ${sentMsgId} after ${timeoutMs}ms.`);
-                resolve({ delivered: false, msgId: sentMsgId });
-            }
-        }, timeoutMs);
     });
 };
 
 /**
- * Send media message
- * @param {string} phone
- * @param {object} file - Multer file object
- * @param {string} caption
+ * Send media message asynchronously using Job Queue
  */
 const sendMedia = async (phone, file, caption) => {
-    if (!clientInstance) throw new Error("WhatsApp client not initialized");
+    return enqueueMessage(async () => {
+        if (!clientInstance || connectionStatus !== 'connected') {
+            throw new Error("WhatsApp client not connected");
+        }
 
-    loadWaCore();
+        const chatId = formatPhone(phone);
+        console.log(`[WA] Sending media to ${chatId} (Original: ${phone})`);
+        console.log(`[WA] File details: ${file.mimetype}, ${file.originalname}, size: ${file.size}`);
 
-    // Strip non-numeric characters to ensure valid ID (e.g. remove +)
-    const sanitizedPhone = phone.replace(/\D/g, '');
+        try {
+            let messagePayload = {};
+            // Read from the temp file written by multer diskStorage
+            const mediaBuffer = fs.readFileSync(file.path);
 
-    // 1. Verify if number is registered on WhatsApp
-    const numberDetails = await clientInstance.getNumberId(sanitizedPhone);
-    if (!numberDetails) {
-        throw new Error(`Number ${sanitizedPhone} is not registered on WhatsApp`);
-    }
+            if (file.mimetype.startsWith('image/')) {
+                messagePayload = {
+                    image: mediaBuffer,
+                    caption: caption || ''
+                };
+            } else {
+                messagePayload = {
+                    document: mediaBuffer,
+                    mimetype: file.mimetype,
+                    fileName: file.originalname,
+                    caption: caption || ''
+                };
+            }
 
-    const chatId = numberDetails._serialized;
-    console.log(`[WA] Sending media to ${chatId} (Original: ${phone})`);
-    console.log(`[WA] File details: ${file.mimetype}, ${file.originalname}, size: ${file.size}`);
-
-    try {
-        const media = new MessageMedia(file.mimetype, file.buffer.toString('base64'), file.originalname);
-
-        // 2. Get Chat object explicitly to ensure it's loaded
-        const chat = await clientInstance.getChatById(chatId);
-
-        // 3. Send using chat object
-        return await chat.sendMessage(media, { caption: caption || '' });
-    } catch (e) {
-        console.error("[WA] Internal sendMessage error:", e);
-        throw e;
-    }
+            const sentMsg = await clientInstance.sendMessage(chatId, messagePayload);
+            return sentMsg;
+        } catch (e) {
+            console.error("[WA] Internal sendMedia error:", e);
+            throw e;
+        }
+    });
 };
 
 const destroyClient = async () => {
+    isDestroying = true;
     stopTimers();
     if (clientInstance) {
         try {
-            await clientInstance.destroy();
+            // Remove event listeners to prevent auto-reconnect zombies
+            clientInstance.ev.removeAllListeners('connection.update');
+            clientInstance.ev.removeAllListeners('messages.update');
+            clientInstance.ev.removeAllListeners('creds.update');
+
+            clientInstance.end(undefined);
             clientInstance = null;
+            connectionStatus = 'disconnected';
+            waEvents.emit('status_change', connectionStatus);
+            waEvents.emit('qr_change', null);
             console.log('[WA] Client destroyed');
         } catch (e) {
             console.error('[WA] Error destroying client:', e);
@@ -371,35 +321,33 @@ const destroyClient = async () => {
     }
 };
 
-// Logout and clear session (forces new QR on next init)
 const logout = async () => {
     console.log('[WA] Logging out...');
-    ready = false;
-    isAuthenticated = false;
+    isDestroying = true;
+    stopTimers();
+    connectionStatus = 'disconnected';
     qrCodeData = null;
+    waEvents.emit('status_change', connectionStatus);
+    waEvents.emit('qr_change', qrCodeData);
 
     if (clientInstance) {
         try {
+            clientInstance.ev.removeAllListeners('connection.update');
+            clientInstance.ev.removeAllListeners('messages.update');
+            clientInstance.ev.removeAllListeners('creds.update');
             await clientInstance.logout();
             console.log('[WA] Logged out successfully');
         } catch (e) {
             console.error('[WA] Error during logout:', e);
         }
-        try {
-            await clientInstance.destroy();
-        } catch (e) {
-            console.error('[WA] Error destroying client:', e);
-        }
         clientInstance = null;
     }
 
-    // Delete session folder to force fresh QR
-    const sessionPath = WA_AUTH_DIR;
-    if (fs.existsSync(sessionPath)) {
-        fs.rmSync(sessionPath, { recursive: true, force: true });
+    if (fs.existsSync(WA_AUTH_DIR)) {
+        fs.rmSync(WA_AUTH_DIR, { recursive: true, force: true });
         console.log('[WA] Session folder deleted');
     }
-    stopTimers();
+
     return true;
 };
 
@@ -412,5 +360,6 @@ module.exports = {
     sendMedia,
     destroyClient,
     logout,
-    autoInitIfPossible
+    autoInitIfPossible,
+    waEvents
 };

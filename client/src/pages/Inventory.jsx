@@ -44,6 +44,7 @@ const Inventory = () => {
 
     // Confirmation Modal State
     const [confirmAction, setConfirmAction] = useState({ isOpen: false, type: 'single', productId: null });
+    const [activeProductId, setActiveProductId] = useState(null);
 
     // Debounce Search
     useEffect(() => {
@@ -144,17 +145,33 @@ const Inventory = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            let savedBarcode = formData.barcode;
+            let savedId = null;
             if (editingProduct) {
                 await axios.put(`/api/products/${editingProduct.id}`, formData);
                 toast.success('Product updated');
+                savedId = editingProduct.id;
             } else {
-                await axios.post('/api/products', formData);
+                const res = await axios.post('/api/products', formData);
                 toast.success('Product created');
+                savedId = res.data.id;
+                if (res.data.barcode) savedBarcode = res.data.barcode;
             }
             setShowForm(false);
             setEditingProduct(null);
             setFormData({ barcode: '', name: '', category: '', subcategory_id: '', price: '', cost_price: '', stock_quantity: '', low_stock_threshold: '10' });
-            fetchProducts();
+            
+            if (savedBarcode) {
+                setSearchTerm(savedBarcode);
+                if (savedId) {
+                    setActiveProductId(savedId);
+                    setTimeout(() => {
+                        setActiveProductId(null);
+                    }, 5000);
+                }
+            } else {
+                fetchProducts();
+            }
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error saving product');
         }
@@ -358,7 +375,7 @@ const Inventory = () => {
                     </thead>
                     <tbody>
                         {products.map(p => (
-                            <tr key={p.id} className={selectedIds.has(p.id) ? 'row-selected' : ''}>
+                            <tr key={p.id} className={`${selectedIds.has(p.id) ? 'row-selected' : ''} ${activeProductId === p.id ? 'active-highlight-row' : ''}`}>
                                 <td className="checkbox-cell" data-label="Select">
                                     <input type="checkbox" className="custom-checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} />
                                 </td>

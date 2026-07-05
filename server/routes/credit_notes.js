@@ -19,6 +19,23 @@ router.get('/', verifyToken, async (req, res) => {
     }
 });
 
+// Get usages (redemption history) for a credit note
+router.get('/:id/usages', verifyToken, async (req, res) => {
+    try {
+        const query = `
+            SELECT cnu.*, s.id as sale_id, s.total_amount as sale_total_amount, s.created_at as sale_created_at
+            FROM credit_note_usage cnu
+            JOIN sales s ON cnu.sale_id = s.id
+            WHERE cnu.credit_note_id = ?
+            ORDER BY cnu.used_at DESC
+        `;
+        const [rows] = await db.query(query, [req.params.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // Get Credit Note by Code (for validation during POS)
 router.get('/:code', verifyToken, async (req, res) => {
     try {

@@ -50,7 +50,7 @@ const App = () => {
 
   const checkLicense = React.useCallback(async () => {
     try {
-      const res = await fetch('/api/license/status');
+      const res = await fetch(`/api/license/status?_t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setLicenseStatus(data);
@@ -85,6 +85,9 @@ const App = () => {
     // Listen for close request from Electron via preload bridge
     if (window.electronAPI) {
       window.electronAPI.onCloseRequest(() => {
+        if (window.electronAPI.acknowledgeClose) {
+          window.electronAPI.acknowledgeClose();
+        }
         setExitModal(true);
       });
     }

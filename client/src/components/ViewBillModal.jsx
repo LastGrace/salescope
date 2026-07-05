@@ -242,32 +242,26 @@ const ViewBillModal = ({ sale, onClose }) => {
 
                         {/* Invoice Meta Info */}
                         <div className="bill-meta-section">
-                            <div className="bill-meta-row">
-                                <span>
-                                    <span className="bill-meta-label">Inv No: </span>
-                                    <span className="bill-meta-value">SINV-{sale.id}</span>
-                                </span>
-                                <span>
-                                    <span className="bill-meta-label">Date: </span>
-                                    <span className="bill-meta-value">{new Date(sale.created_at).toLocaleDateString('en-GB')}</span>
-                                </span>
+                            <div className="bill-meta-item">
+                                <span className="bill-meta-label">Inv No</span>
+                                <span className="bill-meta-value" style={{ color: '#dc2626', fontFamily: 'monospace', fontSize: '0.9rem' }}>SINV-{sale.id}</span>
                             </div>
-                            <div className="bill-meta-row">
-                                <span>
-                                    <span className="bill-meta-label">Customer: </span>
-                                    <span className="bill-meta-value">{sale.customer_name || 'Customer'}</span>
-                                </span>
-                                <span>
-                                    <span className="bill-meta-label">Time: </span>
-                                    <span className="bill-meta-value">{new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                </span>
+                            <div className="bill-meta-item">
+                                <span className="bill-meta-label">Date</span>
+                                <span className="bill-meta-value">{new Date(sale.created_at).toLocaleDateString('en-GB')}</span>
+                            </div>
+                            <div className="bill-meta-item">
+                                <span className="bill-meta-label">Customer</span>
+                                <span className="bill-meta-value" style={{ textTransform: 'uppercase' }}>{sale.customer_name || 'Customer'}</span>
+                            </div>
+                            <div className="bill-meta-item">
+                                <span className="bill-meta-label">Time</span>
+                                <span className="bill-meta-value">{new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                             {sale.customer_phone && (
-                                <div className="bill-meta-row">
-                                    <span>
-                                        <span className="bill-meta-label">Contact: </span>
-                                        <span className="bill-meta-value">{sale.customer_phone}</span>
-                                    </span>
+                                <div className="bill-meta-item">
+                                    <span className="bill-meta-label">Contact</span>
+                                    <span className="bill-meta-value">{sale.customer_phone}</span>
                                 </div>
                             )}
                         </div>

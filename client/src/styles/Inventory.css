@@ -927,3 +927,18 @@
         padding: 0.6rem;
     }
 }
+
+/* Row highlight styling on desktop */
+.row-selected {
+    background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+.active-highlight-row {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+    animation: highlight-pulse 2.5s ease-out;
+}
+
+@keyframes highlight-pulse {
+    0% { background-color: rgba(16, 185, 129, 0.4) !important; }
+    100% { background-color: rgba(16, 185, 129, 0.12) !important; }
+}

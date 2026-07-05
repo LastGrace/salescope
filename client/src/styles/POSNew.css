@@ -1,4 +1,4 @@
-﻿/* =========================================
+/* =========================================
    POS Redesign (SaaS Design System)
    ========================================= */
 
@@ -337,6 +337,48 @@
     box-shadow: var(--pos-shadow-sm);
 }
 
+.posn-split-btn-group {
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
+    border: 1px solid var(--pos-border);
+    background: var(--pos-card);
+    overflow: hidden;
+}
+
+.posn-split-btn-group .posn-btn {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    background: transparent;
+    height: 38px;
+    box-shadow: none;
+}
+
+.posn-split-btn-group .posn-btn:hover {
+    background: var(--pos-bg);
+    transform: none;
+}
+
+.posn-split-btn-group .posn-btn.split-main {
+    padding: 0 0.5rem;
+}
+
+.posn-split-btn-group .posn-btn.split-icon {
+    padding: 0 0.4rem;
+    border-left: 1px solid var(--pos-border);
+    position: relative;
+}
+
+.hold-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    line-height: 1;
+}
+
 .posn-badge {
     background: var(--pos-indigo-light);
     color: var(--pos-primary);
@@ -363,6 +405,7 @@
     gap: 0.75rem;
     width: 100%;
     align-items: stretch;
+    flex-wrap: wrap; /* Allow stacking on narrow screens */
 }
 
 .card-style {
@@ -377,7 +420,8 @@
 }
 
 .global-discount-box {
-    flex: 0 0 120px;
+    flex: 1 1 120px; /* Allow shrinking and growing instead of fixed 120px */
+    min-width: 0;
 }
 
 /* Expand Global Discount if Cash Calculator is hidden */
@@ -390,8 +434,52 @@
     max-width: none;
 }
 
+.discount-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    gap: 0.5rem;
+}
+
+.discount-header-row label {
+    margin-bottom: 0 !important;
+}
+
+.posn-toggle-group.mini {
+    height: 26px;
+    padding: 2px;
+}
+
+.posn-toggle-group.mini button {
+    padding: 0 6px;
+    font-size: 0.75rem;
+    height: 100%;
+    width: auto;
+    min-width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.discount-inputs {
+    display: flex;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.discount-inputs input {
+    min-width: 0;
+    width: 100%;
+}
+
+.posn-toggle-group {
+    flex-shrink: 0;
+}
+
 .cash-change-calculator {
-    flex: 1;
+    flex: 1 1 120px; /* Allow shrinking and growing */
+    min-width: 0;
 }
 
 .cash-change-content {
@@ -403,11 +491,14 @@
 
 .cash-change-content>div {
     flex: 1;
+    min-width: 0; /* Allow inner input container to shrink */
 }
 
 .cash-change-display {
     text-align: right;
-    min-width: 80px;
+    min-width: 0; /* Let it shrink naturally */
+    white-space: nowrap; /* Prevent text from wrapping/cutting in half */
+    padding-left: 0.25rem;
 }
 
 .cash-change-display div {
@@ -473,33 +564,33 @@
 .posn-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1100px;
+    min-width: 700px; /* Reduced from 1100px to avoid horizontal scrollbar on 1080x768 */
     position: relative;
     z-index: 1;
-    /* Slight increase to ensure no squishing */
+    table-layout: fixed; /* Ensures equal distribution of remaining space for un-sized columns */
 }
 
 /* Explicit Column Widths */
 .col-idx {
-    width: 50px;
+    width: 40px;
     text-align: center !important;
 }
 
 .col-barcode {
-    width: 150px;
+    width: 120px;
 }
 
 .col-item {
     width: auto;
-    min-width: 200px;
+    min-width: 150px;
 }
 
 .col-price {
-    width: 110px;
+    width: 90px;
 }
 
 .col-qty {
-    width: 130px;
+    width: 120px;
 }
 
 .col-disc {
@@ -508,36 +599,37 @@
 }
 
 .col-total {
-    width: 120px;
+    width: 100px;
     text-align: right !important;
 }
 
 .col-actions {
-    width: 60px;
+    width: 50px;
     text-align: center !important;
 }
 
 .posn-table th {
-    background: var(--pos-bg);
+    background: var(--bg-card, #1e293b) !important;
     position: sticky;
     top: 0;
     z-index: 10;
     text-align: left;
-    padding: 1rem;
+    padding: 0.75rem 0.5rem;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 700;
-    color: var(--pos-text-muted);
-    border-bottom: 1px solid var(--pos-border);
+    color: var(--text-main, #ffffff) !important;
+    border-bottom: 2px solid var(--pos-border);
 }
 
 .posn-table td {
-    padding: 0.5rem 1rem;
+    padding: 0.5rem;
     font-size: 0.95rem;
     border-bottom: 1px solid var(--pos-border);
     font-weight: 600; /* Increased from default */
     color: var(--pos-text-main);
+    word-break: break-word; /* Prevent text cutting in half */
 }
 
 .posn-table .col-barcode code {
@@ -672,7 +764,7 @@
     background: var(--pos-card);
     border-top: 2px solid var(--pos-border);
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1.2fr 1.2fr 1fr; /* Give more space to summary and payment to prevent cutoffs */
     gap: 1rem;
     padding: 0.75rem 1rem;
     flex-shrink: 0;
@@ -697,6 +789,8 @@
     flex-direction: row;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
+    flex-wrap: nowrap; /* Prevent wrapping to keep Savings card on the same line */
+    overflow-x: auto; /* Allow scrolling if it truly doesn't fit, preventing layout shift */
 }
 
 .summary-section.checkout-summary .summary-item {
@@ -715,7 +809,8 @@
 .summary-item {
     display: flex;
     flex-direction: column;
-    min-width: 80px;
+    min-width: 0; /* Remove 80px min-width to allow shrinking */
+    flex: 1;
 }
 
 .summary-item label {
@@ -760,14 +855,18 @@
     overflow: hidden;
 }
 
-.promotions-box label {
+.promo-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.promo-header-row label {
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--pos-text-muted);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    margin-bottom: 0 !important;
 }
 
 .promo-inputs {
@@ -816,12 +915,7 @@
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
-.loyalty-header {
-    display: flex;
-    justify-content: flex-end;
-    min-height: 14px;
-    /* Matches height of pts info */
-}
+
 
 .avail-pts-info {
     font-size: 0.65rem;
@@ -2508,4 +2602,11 @@
     to {
         opacity: 1;
     }
+}
+
+/* Keyboard-only navigation styles */
+.active-keyboard-row {
+    background-color: rgba(99, 102, 241, 0.1) !important; /* Indigo tint */
+    outline: 2px solid var(--primary, #4f46e5) !important;
+    outline-offset: -2px;
 }

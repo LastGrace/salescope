@@ -200,6 +200,24 @@ const Activation = ({ licenseStatus, onActivated }) => {
             {/* Action buttons */}
             <div className="license-dashboard-actions">
               <button 
+                onClick={async () => {
+                  setIsLoading(true);
+                  try {
+                    await axios.post('/api/license/sync');
+                    onActivated();
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="btn-secondary sync-toggle-btn"
+                disabled={isLoading}
+              >
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                Sync License
+              </button>
+              <button 
                 onClick={() => setShowRenewForm(true)}
                 className="btn-secondary renew-toggle-btn"
               >
