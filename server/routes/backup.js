@@ -361,13 +361,18 @@ router.post('/danger/delete-all', async (req, res) => {
             return res.json({ message: 'Database is already empty' });
         }
 
-        // Drop all tables in a single batch
-        await db.query('SET FOREIGN_KEY_CHECKS = 0');
-        const dropStatements = tableNames.map(t => `DROP TABLE IF EXISTS \`${t}\``).join('; ');
-        await db.query(dropStatements);
-        await db.query('SET FOREIGN_KEY_CHECKS = 1');
-        
-        tableNames.forEach(t => console.log(`[DANGER] Dropped table: ${t}`));
+        // Drop all tables using a single connection
+        const connection = await db.getConnection();
+        try {
+            await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+            for (const t of tableNames) {
+                await connection.query(`DROP TABLE IF EXISTS \`${t}\``);
+                console.log(`[DANGER] Dropped table: ${t}`);
+            }
+            await connection.query('SET FOREIGN_KEY_CHECKS = 1');
+        } finally {
+            connection.release();
+        }
 
         console.log('[DANGER] All tables deleted successfully');
         res.json({ message: 'All database tables deleted successfully', tablesDeleted: tables.length });

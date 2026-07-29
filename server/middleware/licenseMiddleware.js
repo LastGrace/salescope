@@ -10,18 +10,8 @@
 
 const { getLicenseStatus } = require('../services/licenseService');
 
-// ── In-memory license result cache ──────────────────────────────────
-let cachedResult = null;
-let cacheTimestamp = 0;
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
-
-/**
- * Invalidate the cache (called after activation/deactivation/restore)
- */
-const invalidateLicenseCache = () => {
-    cachedResult = null;
-    cacheTimestamp = 0;
-};
+// Keep for compatibility
+const invalidateLicenseCache = () => {};
 
 const enforceLicense = async (req, res, next) => {
     // 1. Bypass check for non-API requests (static assets, index.html)
@@ -30,8 +20,8 @@ const enforceLicense = async (req, res, next) => {
         return next();
     }
 
-    // 2. Bypass check for licensing, health, and login endpoints themselves to allow activation
-    if (path.includes('/api/license') || path.includes('/api/auth/login') || path.includes('/api/health')) {
+    // 2. Bypass check for licensing, health, login, and store settings endpoints themselves to allow activation and login UI
+    if (path.includes('/api/license') || path.includes('/api/auth/login') || path.includes('/api/health') || path.includes('/api/settings/store')) {
         return next();
     }
 
@@ -41,30 +31,10 @@ const enforceLicense = async (req, res, next) => {
     }
 
     try {
-        const now = Date.now();
-
-        // Use cached result if fresh
-        if (cachedResult && (now - cacheTimestamp) < CACHE_TTL_MS) {
-            if (cachedResult.status === 'licensed') {
-                return next();
-            }
-            // Cached denial
-            return res.status(403).json({
-                error: 'LICENSE_LOCKED',
-                status: cachedResult.status,
-                reason: cachedResult.reason,
-                daysLeft: cachedResult.daysLeft || 0,
-                billsLeft: cachedResult.billsLeft || 0
-            });
-        }
-
-        // Full license check (expensive — only runs once per 60s)
+        // Fast memory status check (non-blocking)
         const validation = await getLicenseStatus();
-        cachedResult = validation;
-        cacheTimestamp = Date.now();
 
         if (validation.status === 'licensed') {
-            // Software is valid, continue
             return next();
         }
 

@@ -142,8 +142,9 @@ router.post("/logout", async (req, res) => {
 
 router.post("/sendText", async (req, res) => {
     try {
-        const { phone, message } = req.body;
-        const result = await getWa().sendText(phone, message);
+        const { phone, message, feature } = req.body;
+        const provider = await require("../services/messagingProviderFactory").getProvider(feature || 'general');
+        const result = await provider.sendText(phone, message);
         // result = { delivered: boolean, msgId: string }
         res.json({ success: true, delivered: result.delivered, msgId: result.msgId });
     } catch (e) {
@@ -169,15 +170,16 @@ const upload = multer({ dest: uploadDir });
 
 router.post("/sendMedia", upload.single('file'), async (req, res) => {
     try {
-        const { phone, caption } = req.body;
+        const { phone, caption, feature } = req.body;
         const file = req.file;
 
         if (!file) {
             return res.status(400).json({ error: "No file uploaded" });
         }
 
-        await getWa().sendMedia(phone, file, caption);
-        res.json({ success: true });
+        const provider = await require("../services/messagingProviderFactory").getProvider(feature || 'general');
+        const result = await provider.sendMedia(phone, file, caption);
+        res.json({ success: true, delivered: result.delivered, msgId: result.msgId });
     } catch (e) {
         console.error("Send Media Error:", e);
         res.status(500).json({ error: e.message });
@@ -237,6 +239,77 @@ router.get("/campaign/status", (req, res) => {
 router.post("/campaign/cancel", (req, res) => {
     const result = campaignService.cancelCampaign();
     res.json(result);
+});
+
+// GET all blocklisted numbers
+router.get("/blocklist", async (req, res) => {
+    try {
+        const db = require("../db");
+        const [rows] = await db.query("SELECT * FROM whatsapp_blocklist ORDER BY created_at DESC");
+        res.json({ success: true, blocklist: rows });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ADD number to blocklist manually
+router.post("/blocklist/add", async (req, res) => {
+    try {
+        const { phone } = req.body;
+        if (!phone) return res.status(400).json({ error: "Phone number is required" });
+        const rawPhone = phone.replace(/\D/g, '');
+        const db = require("../db");
+        await db.query("INSERT IGNORE INTO whatsapp_blocklist (phone) VALUES (?)", [rawPhone]);
+        res.json({ success: true, message: `Number ${rawPhone} added to blocklist` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// REMOVE number from blocklist manually
+router.post("/blocklist/remove", async (req, res) => {
+    try {
+        const { phone } = req.body;
+        if (!phone) return res.status(400).json({ error: "Phone number is required" });
+        const rawPhone = phone.replace(/\D/g, '');
+        const db = require("../db");
+        await db.query("DELETE FROM whatsapp_blocklist WHERE phone = ?", [rawPhone]);
+        res.json({ success: true, message: `Number ${rawPhone} removed from blocklist` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET campaign history logs from DB
+router.get("/campaigns/history", async (req, res) => {
+    try {
+        const db = require("../db");
+        const [rows] = await db.query("SELECT * FROM whatsapp_campaigns ORDER BY started_at DESC LIMIT 50");
+        
+        // Parse JSON fields safely
+        const parsed = rows.map(row => ({
+            ...row,
+            running: row.running === 1,
+            cancelled: row.cancelled === 1,
+            logs: typeof row.logs === 'string' ? JSON.parse(row.logs) : row.logs,
+            customers: typeof row.customers === 'string' ? JSON.parse(row.customers) : row.customers
+        }));
+        
+        res.json({ success: true, campaigns: parsed });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET individual message logs from DB
+router.get("/logs", async (req, res) => {
+    try {
+        const db = require("../db");
+        const [rows] = await db.query("SELECT * FROM whatsapp_message_logs ORDER BY created_at DESC LIMIT 200");
+        res.json({ success: true, logs: rows });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 module.exports = router;

@@ -7,6 +7,7 @@ import { Search, Trash, User, CreditCard, Banknote, Smartphone, Printer, CheckCi
 import '../styles/POSNew.css';
 import ViewBillModal from '../components/ViewBillModal';
 import CustomerDetailModal from '../components/CustomerDetailModal';
+import { normalizePhone } from '../utils/phoneUtils';
 
 import { useCart } from '../context/CartContext';
 import toast from 'react-hot-toast';
@@ -761,16 +762,15 @@ const POSNew = () => {
 
     const saveQuickCustomer = async (e) => {
         if (e) e.preventDefault();
-        if (!quickCustomerForm.name || !quickCustomerForm.phone) return toast.error('Name and Phone are required');
+        if (!quickCustomerForm.name || !quickCustomerForm.name.trim()) return toast.error('Customer name is required');
 
-        // Phone Validation (Simple)
-        const cleanPhone = quickCustomerForm.phone.replace(/\D/g, '');
-        if (cleanPhone.length < 10) return toast.error('Enter a valid phone number');
-        let formattedPhone = cleanPhone.length === 10 ? '+91' + cleanPhone : '+' + cleanPhone;
+        // Unified phone validation
+        const phoneResult = normalizePhone(quickCustomerForm.phone);
+        if (phoneResult.error) return toast.error(phoneResult.error);
 
         try {
-            const res = await axios.post('/api/customers', { ...quickCustomerForm, phone: formattedPhone });
-            const newCustomer = { ...quickCustomerForm, phone: formattedPhone, id: res.data.id, loyalty_points: 0 };
+            const res = await axios.post('/api/customers', { ...quickCustomerForm, phone: phoneResult.phone });
+            const newCustomer = { ...quickCustomerForm, phone: phoneResult.phone, id: res.data.id, loyalty_points: 0 };
             setCustomers(prev => [...prev, newCustomer]);
             selectCustomer(newCustomer);
             setShowQuickCustomerModal(false);

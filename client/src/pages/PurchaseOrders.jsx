@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, CheckCircle, Download, Upload } from 'lucide-react';
+import { Plus, CheckCircle, Download, Upload, Trash2, Search, Package, ClipboardList } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import '../styles/PurchaseOrders.css';
 
 const PurchaseOrders = () => {
     const [orders, setOrders] = useState([]);
@@ -43,6 +44,7 @@ const PurchaseOrders = () => {
     };
 
     const addToCart = (productId) => {
+        if (!productId) return;
         const product = products.find(p => p.id === parseInt(productId));
         if (!product) return;
         setCart([...cart, { product_id: product.id, name: product.name, quantity: 1, cost_price: 0 }]);
@@ -68,6 +70,7 @@ const PurchaseOrders = () => {
             localStorage.removeItem('po_vendor');
             localStorage.removeItem('po_cart');
             fetchOrders();
+            toast.success('Purchase order created successfully!');
         } catch (err) {
             toast.error('Failed to create PO');
         }
@@ -76,6 +79,7 @@ const PurchaseOrders = () => {
     const receivePO = async (id) => {
         try {
             await axios.post(`/api/purchase-orders/${id}/receive`);
+            toast.success('Order marked as received!');
             fetchOrders();
         } catch (err) {
             toast.error('Failed to receive PO');
@@ -101,7 +105,6 @@ const PurchaseOrders = () => {
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
                 // Map Excel headers to API keys
-                // Expected Import headers: 'Vendor', 'Barcode', 'Quantity', 'Cost'
                 const formattedData = jsonData.map(row => ({
                     vendor: row['Vendor'] || row['vendor'],
                     barcode: row['Barcode'] || row['barcode'],
@@ -139,24 +142,28 @@ const PurchaseOrders = () => {
     });
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="po-page">
+            {/* Header Section */}
+            <div className="po-header">
+                <div className="po-header-left">
                     <h1>Purchase Orders</h1>
-                    <input
-                        type="text"
-                        className="input"
-                        placeholder="Search..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '250px', margin: 0 }}
-                    />
+                    <div style={{ position: 'relative' }}>
+                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <input
+                            type="text"
+                            className="po-search-input"
+                            placeholder="Search orders, vendors..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ paddingLeft: '2.5rem' }}
+                        />
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn" style={{ border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={handleExport}>
-                        <Download size={16} /> Export Excel
+                <div className="po-header-actions">
+                    <button className="po-btn po-btn-outline" onClick={handleExport}>
+                        <Download size={16} /> Export
                     </button>
-                    <button className="btn" style={{ border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => document.getElementById('file-upload-po').click()}>
+                    <button className="po-btn po-btn-outline" onClick={() => document.getElementById('file-upload-po').click()}>
                         <Upload size={16} /> Import
                     </button>
                     <input
@@ -166,99 +173,146 @@ const PurchaseOrders = () => {
                         style={{ display: 'none' }}
                         onChange={handleImport}
                     />
-                    <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-                        <Plus size={16} /> New Order
+                    <button className="po-btn po-btn-primary" onClick={() => setShowForm(!showForm)}>
+                        {showForm ? 'Cancel Creation' : <><Plus size={16} /> New Order</>}
                     </button>
                 </div>
             </div>
 
-
-
+            {/* Create PO Form */}
             {showForm && (
-                <div className="card" style={{ marginBottom: '1.5rem' }}>
+                <div className="po-create-section">
                     <h3>Create Purchase Order</h3>
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label>Vendor Name</label>
-                        <input className="input" value={vendorName} onChange={e => setVendorName(e.target.value)} />
+                    
+                    <div className="po-form-grid">
+                        <div className="po-form-group">
+                            <label>Vendor Name</label>
+                            <input 
+                                className="po-form-input" 
+                                placeholder="Enter vendor name"
+                                value={vendorName} 
+                                onChange={e => setVendorName(e.target.value)} 
+                            />
+                        </div>
+                        <div className="po-form-group">
+                            <label>Add Item</label>
+                            <select className="po-form-select" onChange={e => addToCart(e.target.value)} value="">
+                                <option value="">Select Product...</option>
+                                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        </div>
                     </div>
 
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label>Add Item</label>
-                        <select className="input" onChange={e => addToCart(e.target.value)} value="">
-                            <option value="">Select Product...</option>
-                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                    </div>
-
-                    <table className="table" style={{ marginBottom: '1rem' }}>
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Cost Price</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {cart.map((item, i) => (
-                                <tr key={i}>
-                                    <td>{item.name}</td>
-                                    <td><input type="number" style={{ width: '80px' }} value={item.quantity} onChange={e => updateCartItem(i, 'quantity', Number(e.target.value))} /></td>
-                                    <td><input type="number" style={{ width: '80px' }} value={item.cost_price} onChange={e => updateCartItem(i, 'cost_price', Number(e.target.value))} /></td>
-                                    <td><button className="btn" style={{ color: 'red' }} onClick={() => removeCartItem(i)}>X</button></td>
+                    {cart.length > 0 ? (
+                        <table className="po-cart-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Cost Price</th>
+                                    <th style={{ width: '80px', textAlign: 'center' }}>Remove</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {cart.map((item, i) => (
+                                    <tr key={i}>
+                                        <td style={{ fontWeight: 600 }}>{item.name}</td>
+                                        <td>
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                className="po-cart-input" 
+                                                value={item.quantity} 
+                                                onChange={e => updateCartItem(i, 'quantity', Number(e.target.value))} 
+                                            />
+                                        </td>
+                                        <td>
+                                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>$</span>
+                                                <input 
+                                                    type="number" 
+                                                    min="0"
+                                                    step="0.01"
+                                                    className="po-cart-input" 
+                                                    style={{ paddingLeft: '1.5rem' }}
+                                                    value={item.cost_price} 
+                                                    onChange={e => updateCartItem(i, 'cost_price', Number(e.target.value))} 
+                                                />
+                                            </div>
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <button className="po-btn-danger-icon" onClick={() => removeCartItem(i)}>
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div style={{ padding: '2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '0.75rem', marginBottom: '2rem', border: '1px dashed #cbd5e1', color: '#64748b' }}>
+                            <Package size={32} style={{ opacity: 0.5, marginBottom: '0.5rem' }} />
+                            <p style={{ margin: 0 }}>No items added yet. Select a product to begin.</p>
+                        </div>
+                    )}
 
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button className="btn btn-primary" onClick={createPO} disabled={cart.length === 0}>Create PO</button>
-                        <button className="btn" onClick={() => setShowForm(false)}>Cancel</button>
+                    <div className="po-form-actions">
+                        <button className="po-btn po-btn-primary" onClick={createPO} disabled={cart.length === 0 || !vendorName}>
+                            Create Purchase Order
+                        </button>
+                        <button className="po-btn po-btn-outline" onClick={() => setShowForm(false)}>
+                            Cancel
+                        </button>
                     </div>
                 </div>
             )}
 
-            <div className="card">
-                <table className="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Vendor</th>
-                            <th>Status</th>
-                            <th>Total Cost</th>
-                            <th>Date</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredOrders.map(po => (
-                            <tr key={po.id}>
-                                <td>#{po.id}</td>
-                                <td>{po.vendor_name}</td>
-                                <td>
-                                    <span style={{
-                                        padding: '0.25rem 0.5rem',
-                                        borderRadius: '0.25rem',
-                                        backgroundColor: po.status === 'RECEIVED' ? '#dcfce7' : '#fef9c3',
-                                        color: po.status === 'RECEIVED' ? '#166534' : '#854d0e',
-                                        fontSize: '0.875rem'
-                                    }}>
-                                        {po.status}
-                                    </span>
-                                </td>
-                                <td>${po.total_cost}</td>
-                                <td>{new Date(po.created_at).toLocaleDateString()}</td>
-                                <td>
-                                    {po.status === 'PENDING' && (
-                                        <button className="btn btn-primary" onClick={() => receivePO(po.id)}>
-                                            Mark Received
-                                        </button>
-                                    )}
-                                </td>
+            {/* Main Orders Table */}
+            <div className="po-table-card">
+                {filteredOrders.length > 0 ? (
+                    <table className="po-main-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Vendor</th>
+                                <th>Status</th>
+                                <th>Total Cost</th>
+                                <th>Date</th>
+                                <th style={{ textAlign: 'right' }}>Action</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredOrders.map(po => (
+                                <tr key={po.id}>
+                                    <td className="po-id">#{po.id}</td>
+                                    <td className="po-vendor">{po.vendor_name}</td>
+                                    <td>
+                                        <span className={`po-status po-status-${po.status.toLowerCase()}`}>
+                                            {po.status}
+                                        </span>
+                                    </td>
+                                    <td className="po-cost">${parseFloat(po.total_cost).toFixed(2)}</td>
+                                    <td>{new Date(po.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        {po.status === 'PENDING' && (
+                                            <button className="po-action-receive" onClick={() => receivePO(po.id)}>
+                                                <CheckCircle size={14} /> Mark Received
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <div className="po-empty-state">
+                        <ClipboardList size={48} style={{ opacity: 0.3 }} />
+                        <h3 style={{ margin: 0, color: '#334155' }}>No Purchase Orders Found</h3>
+                        <p style={{ margin: 0, maxWidth: '300px' }}>
+                            {searchTerm ? 'Try adjusting your search terms.' : 'Create your first purchase order to track inventory costs.'}
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

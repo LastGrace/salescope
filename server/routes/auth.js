@@ -68,6 +68,12 @@ router.post('/login', async (req, res) => {
         // Update last login
         await db.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]);
 
+        // Trigger background license status sync asynchronously upon login
+        setImmediate(() => {
+            const { getLicenseStatus } = require('../services/licenseService');
+            getLicenseStatus(true).catch(err => console.error('[License Login Sync Failed]:', err.message));
+        });
+
         res.json({
             token,
             user: {

@@ -7,7 +7,7 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px);
+    /* backdrop-filter: blur(12px); - Disabled for performance */
     display: flex;
     justify-content: center;
     align-items: center;

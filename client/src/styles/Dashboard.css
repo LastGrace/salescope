@@ -60,7 +60,7 @@
         radial-gradient(circle at 15% 50%, rgba(var(--primary-rgb, 99, 102, 241), 0.15), transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.12), transparent 25%), /* Purple ambient */
         radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.1), transparent 25%); /* Cyan ambient */
-    filter: blur(40px);
+    filter: blur(10px);
     animation: dashboard-ambient 15s ease-in-out infinite alternate;
 }
 
@@ -94,8 +94,8 @@
     margin-bottom: 0.25rem;
     padding: 1.25rem 1.75rem;
     background: linear-gradient(135deg, rgba(var(--primary-rgb, 99, 102, 241), 0.06), rgba(var(--primary-rgb, 99, 102, 241), 0.02));
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     border-radius: 20px;
     border: 1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.15); /* Soft premium border */
     box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
@@ -356,8 +356,8 @@
     min-height: 70px;
     position: relative;
     overflow: hidden;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     animation: hub-card-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -1135,7 +1135,7 @@
     color: var(--text-secondary);
     font-weight: 600;
     font-size: 0.85rem;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(3px);
 }
 
 .dashboard-action-btn:hover {
@@ -1588,8 +1588,8 @@
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.02) 100%);
     border: 1px solid rgba(16, 185, 129, 0.25);
     border-radius: 20px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     box-shadow: 0 8px 32px -8px rgba(5, 150, 105, 0.1);
     margin-bottom: 0.5rem;
     position: relative;
@@ -1611,7 +1611,7 @@
     height: 200%;
     background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
     pointer-events: none;
-    filter: blur(20px);
+    filter: blur(5px);
 }
 
 .license-premium-banner-left {

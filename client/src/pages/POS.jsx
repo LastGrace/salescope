@@ -10,10 +10,10 @@ import ViewBillModal from '../components/ViewBillModal';
 import { useCart } from '../context/CartContext';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
+import { TableVirtuoso } from 'react-virtuoso';
+import { useDebounce } from 'use-debounce';
 
 const POS = () => {
-    const [products, setProducts] = useState([]);
-    const [search, setSearch] = useState('');
     const [activeCartIndex, setActiveCartIndex] = useState(-1);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
 
@@ -236,6 +236,15 @@ const POS = () => {
             status: 'completed'
         };
 
+        // Optimistically clear the UI to prevent blocking the cashier
+        clearCart();
+        setIsSplitPayment(false);
+        setSplitAmounts({ cash: '', card: '', upi: '', pay_later: '' });
+        setAppliedCreditNote(null);
+        setPointsToRedeem('');
+        setEditingSaleId(null);
+        fetchNextBillId();
+
         try {
             let res;
             if (editingSaleId) {
@@ -246,17 +255,8 @@ const POS = () => {
                 toast.success('Sale completed');
             }
 
-            // Reset logic moved before opening modal to ensure clean state behind it
-            clearCart();
-            setIsSplitPayment(false);
-            setSplitAmounts({ cash: '', card: '', upi: '', pay_later: '' });
-            setAppliedCreditNote(null);
-            setPointsToRedeem('');
-            setEditingSaleId(null);
-            fetchNextBillId();
-
             // If "Save & Print" (now just View Bill), open the modal
-            if (shouldPrint && res.data.sale_details) {
+            if (shouldPrint && res.data && res.data.sale_details) {
                 setViewingBill(res.data.sale_details);
             }
 
@@ -285,7 +285,7 @@ const POS = () => {
         } else {
             setActiveCartIndex(cart.length);
         }
-        setSearch('');
+        if (barcodeInputRef.current) barcodeInputRef.current.value = '';
         setTimeout(() => {
             if (barcodeInputRef.current) {
                 barcodeInputRef.current.focus();
@@ -407,7 +407,7 @@ const POS = () => {
         setCustomerHistory([]);
         setCustomerCreditNotes([]);
         setCustomerCreditBills([]);
-        setSearch('');
+        if (barcodeInputRef.current) barcodeInputRef.current.value = '';
         setCouponCode('');
         setAppliedCoupon(null);
         toast.success('Bill put on Hold');
@@ -456,7 +456,7 @@ const POS = () => {
         setCustomerHistory([]);
         setCustomerCreditNotes([]);
         setCustomerCreditBills([]);
-        setSearch('');
+        if (barcodeInputRef.current) barcodeInputRef.current.value = '';
         setCustomerQuery('');
         setEditingSaleId(null);
         setPointsToRedeem('');
@@ -558,7 +558,7 @@ const POS = () => {
             // Esc: Reset inputs and focus barcode input
             if (e.key === 'Escape') {
                 e.preventDefault();
-                setSearch('');
+                if (barcodeInputRef.current) barcodeInputRef.current.value = '';
                 setCustomerQuery('');
                 setShowCustomerResults(false);
                 if (barcodeInputRef.current) {
@@ -845,11 +845,16 @@ const POS = () => {
         fetchCustomerCreditBills(customer.id);
     };
 
+    // Debounce the query to prevent lag on huge datasets
+    const [debouncedCustomerQuery] = useDebounce(customerQuery, 300);
+
     // Filter customers based on Name or Phone
-    const filteredCustomers = customers.filter(c =>
-        c.name.toLowerCase().includes(customerQuery.toLowerCase()) ||
-        (c.phone && c.phone.includes(customerQuery))
-    );
+    const filteredCustomers = useMemo(() => {
+        return customers.filter(c =>
+            c.name.toLowerCase().includes(debouncedCustomerQuery.toLowerCase()) ||
+            (c.phone && c.phone.includes(debouncedCustomerQuery))
+        );
+    }, [customers, debouncedCustomerQuery]);
 
 
 
@@ -974,9 +979,13 @@ const POS = () => {
                             ref={barcodeInputRef}
                             className="pos-search-input"
                             placeholder="Search product or scan..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            onKeyDown={handleBarcode}
+                            defaultValue=""
+                            onKeyDown={(e) => {
+                                handleBarcode(e);
+                                if (e.key === 'Enter') {
+                                    e.target.value = '';
+                                }
+                            }}
                         />
                     </div>
 
@@ -1056,8 +1065,14 @@ const POS = () => {
                                 }}
                             />
                         )}
-                        <table className="pos-table">
-                            <thead>
+                        <TableVirtuoso
+                            className="pos-table"
+                            data={cart}
+                            style={{ flex: 1, minHeight: '300px' }}
+                            components={{
+                                Table: (props) => <table {...props} className="pos-table" />
+                            }}
+                            fixedHeaderContent={() => (
                                 <tr>
                                     <th className="pos-table-col-sno">S.No</th>
                                     <th>Barcode</th>
@@ -1069,14 +1084,9 @@ const POS = () => {
                                     <th>Total</th>
                                     <th className="pos-table-col-empty"></th>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {cart.map((item, index) => (
-                                    <tr 
-                                        key={item.id} 
-                                        className={`${item.isManual ? 'manual-item-row' : ''} cart-item-row-${index} ${activeCartIndex === index ? 'active-keyboard-row' : ''}`}
-                                        onClick={() => setActiveCartIndex(index)}
-                                    >
+                            )}
+                            itemContent={(index, item) => (
+                                <>
                                         <td className="pos-table-col-sno">{index + 1}</td>
                                         <td className="pos-barcode-text">
                                             {item.isManual ? (
@@ -1143,19 +1153,17 @@ const POS = () => {
                                         <td>
                                             <button className="pos-action-btn pos-action-btn-red" onClick={() => removeFromCart(item.id)}><Trash size={16} /></button>
                                         </td>
-                                    </tr>
-                                ))}
-                                {cart.length === 0 && <tr><td colSpan="9">
-                                    <div className="empty-cart-state">
-                                        <ShoppingCart />
-                                        <span>Cart is empty. Scan product or search to begin.</span>
-                                    </div>
-                                </td></tr>}
-                                {/* Invisible element to anchor the scroll-to-bottom action */}
-                                <tr ref={endOfCartRef} style={{ height: 0, border: 'none', padding: 0 }} />
-                            </tbody>
-                        </table>
+                                </>
+                            )}
+                        />
+                        {cart.length === 0 && (
+                            <div className="empty-cart-state">
+                                <ShoppingCart />
+                                <span>Cart is empty. Scan product or search to begin.</span>
+                            </div>
+                        )}
                     </div>
+
 
                     {/* Left Panel Summary (Items & Qty Boxes) */}
                     <div className="pos-left-summary">
@@ -1233,9 +1241,10 @@ const POS = () => {
                                     onFocus={() => customerQuery.length > 1 && setShowCustomerResults(true)}
                                 />
                                 {showCustomerResults && (
-                                    <div className="customer-results-dropdown">
+                                    <div className="customer-results-dropdown" style={{ maxHeight: '300px' }}>
                                         {filteredCustomers.length > 0 ? (
-                                            filteredCustomers.map(c => (
+                                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                            {filteredCustomers.map(c => (
                                                 <div
                                                     key={c.id}
                                                     className="customer-result-item"
@@ -1244,7 +1253,8 @@ const POS = () => {
                                                     <div style={{ fontWeight: 'bold' }}>{c.name}</div>
                                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{c.phone}</div>
                                                 </div>
-                                            ))
+                                            ))}
+                                        </div>
                                         ) : (
                                             <div style={{ padding: '8px', textAlign: 'center' }}>
                                                 <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>No results found</div>
@@ -1253,7 +1263,7 @@ const POS = () => {
                                                     <button
                                                         className="btn btn-primary"
                                                         style={{ width: '100%', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
-                                                        onClick={() => startAddCustomer(customerQuery)} // Pass query as phone
+                                                        onClick={() => startAddCustomer(customerQuery)}
                                                     >
                                                         <Plus size={14} /> Add Customer: {customerQuery}
                                                     </button>

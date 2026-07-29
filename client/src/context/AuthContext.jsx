@@ -85,22 +85,20 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // Check if user has a specific permission
-    // Admin users (is_admin=true) have all permissions
-    const hasPermission = (permission) => {
+    const hasPermission = React.useCallback((permission) => {
         if (!user) return false;
         if (user.is_admin) return true; // Admin has all permissions
         if (!user.permissions) return false;
         return user.permissions.includes(permission);
-    };
+    }, [user]);
 
     // Check if user has any of the specified permissions
-    const hasAnyPermission = (permissions) => {
+    const hasAnyPermission = React.useCallback((permissions) => {
         if (!user) return false;
         if (user.is_admin) return true;
         if (!user.permissions) return false;
         return permissions.some(p => user.permissions.includes(p));
-    };
+    }, [user]);
 
     return (
         <AuthContext.Provider value={{

@@ -35,6 +35,12 @@ _bp('dotenv loaded');
 const db = require('./db');
 _bp('require(db) — MySQL pool created');
 
+// ── Eagerly pre-warm a pool connection in background ──
+// The TCP handshake + MySQL auth takes ~300-400ms. By firing getConnection()
+// immediately (before we even start Express middleware), it runs in parallel
+// with the rest of the synchronous boot work, so SELECT 1 is much faster.
+db.getConnection().then(conn => { conn.release(); _bp('pool pre-warm connection released'); }).catch(() => {});
+
 // Removed global static require for heavy module:
 // const { initWhatsApp, destroyClient, getStatus, getQr } = require('./services/whatsappService');
 // Also removed backupService synchronous require to speed up obfuscated boot time
@@ -110,6 +116,27 @@ server.on('error', (err) => {
     try {
         _bp('async boot sequence started');
         const { CURRENT_SCHEMA_VERSION } = require('./config');
+        const fs = require('fs');
+        const path = require('path');
+        const paths = require('./paths');
+        const STAMP_PATH = path.join(paths.DATA_DIR, '.migrate_stamp');
+
+        // ── FAST PATH: check stamp before touching the DB ──────────────────
+        // If the stamp matches the current schema version we know:
+        //   1. schema_version table already exists
+        //   2. All columns are up-to-date (auto-migrate already confirmed this)
+        // So we can skip CREATE TABLE schema_version + SELECT version entirely
+        // (these two queries cause ~3,000ms of InnoDB cold-start delay on Windows)
+        let stampMatchesSchema = false;
+        try {
+            const stamp = JSON.parse(fs.readFileSync(STAMP_PATH, 'utf8'));
+            if (stamp.version === CURRENT_SCHEMA_VERSION) {
+                stampMatchesSchema = true;
+                _bp(`stamp matches v${CURRENT_SCHEMA_VERSION} — schema_version queries SKIPPED`);
+            }
+        } catch (_) {
+            // Stamp missing or unreadable — will run full schema check below
+        }
 
         // Pre-warm the HWID cache in background asynchronously so it doesn't block boot
         setImmediate(() => {
@@ -131,40 +158,49 @@ server.on('error', (err) => {
                 await db.query('SELECT 1');
                 _bp('DB connection verified (SELECT 1)');
                 connected = true;
-                dbStatus = { ready: false, error: null, hint: null }; // Clear any previous errors
+                dbStatus = { ready: false, error: null, hint: null };
             } catch (err) {
                 console.error('[DB] Connection failed:', err.message);
                 const isConnRefused = err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.errno === -4078 || err.errno === -3008;
                 const isAccessDenied = err.code === 'ER_ACCESS_DENIED_ERROR';
                 const isUnknownDB = err.code === 'ER_BAD_DB_ERROR';
-                
+
                 if (isUnknownDB) {
                     console.log('[DB] Unknown database "retail_shop_db" detected. Attempting automatic creation...');
                     try {
                         const initSchema = require('./init_schema');
                         await initSchema();
                         console.log('[DB] Automatic database creation complete. Retrying connection...');
-                        continue; // Retry connection query immediately
+                        continue;
                     } catch (initErr) {
                         console.error('[DB] Automatic database creation failed:', initErr.message);
                     }
                 }
 
-                let hint = 'Unknown database error. Retrying in 3 seconds...';
+                let hint = 'Unknown database error. Retrying...';
                 if (isConnRefused) hint = 'Cannot connect to MySQL. Please start the MySQL Service from Windows Services. Retrying...';
                 else if (isAccessDenied) hint = 'MySQL access denied. Check your DB_USER and DB_PASSWORD in the .env file. Retrying...';
                 else if (isUnknownDB) hint = 'Database "retail_shop_db" does not exist. Automatically initializing...';
 
                 dbStatus = { ready: false, error: err.message, hint };
 
-                // Wait 500ms before retrying (faster than 1s)
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Wait 100ms before retrying — pool is usually ready within 200ms
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
 
-        await db.query(`CREATE TABLE IF NOT EXISTS schema_version (version INT NOT NULL)`);
-        const [versionRows] = await db.query('SELECT version FROM schema_version LIMIT 1');
-        _bp('schema_version table checked');
+        // ── Schema version check ────────────────────────────────────────────
+        // Skipped entirely when stamp matches — saves ~3,000ms of InnoDB cold-start
+        let versionRows = [];
+        if (!stampMatchesSchema) {
+            await db.query(`CREATE TABLE IF NOT EXISTS schema_version (version INT NOT NULL)`);
+            [versionRows] = await db.query('SELECT version FROM schema_version LIMIT 1');
+            _bp('schema_version table checked (DB query)');
+        } else {
+            // Stamp already verified — treat as if schema_version returned current version
+            versionRows = [{ version: CURRENT_SCHEMA_VERSION }];
+            _bp('schema_version check SKIPPED (stamp fast-path)');
+        }
 
         if (versionRows.length === 0 || versionRows[0].version < CURRENT_SCHEMA_VERSION) {
             console.log(`[DB] First run or new schema detected. Initializing database (v${CURRENT_SCHEMA_VERSION})...`);
@@ -187,10 +223,10 @@ server.on('error', (err) => {
             console.log('[DB] Initialization complete and version updated.');
         } else {
             _bp('Fast boot: schema already initialized');
+            // auto-migrate has its own stamp check — returns instantly if version matches
+            try { await require('./auto-migrate')(); } catch (e) { console.error('[DB] Auto-migrate failed during fast boot:', e.message); }
         }
 
-        // Mark DB ready FIRST so health checks pass, THEN load routes
-        dbStatus.ready = true;
         startBackgroundServices();
 
     } catch (e) {
@@ -256,7 +292,17 @@ function startBackgroundServices() {
         }
     }, 5000);
 
-    // Load critical routes immediately for Login screen
+    // ── DEFER WHATSAPP AUTO-INIT SESSION ──
+    setTimeout(() => {
+        try {
+            const { autoInitIfPossible } = require('./services/whatsappService');
+            autoInitIfPossible();
+        } catch (e) {
+            console.error('[WA Boot] Failed to auto-init WhatsApp:', e.message);
+        }
+    }, 5000);
+
+    // ── Load CRITICAL routes immediately (needed for login screen) ──
     s = Date.now();
     app.use('/api/auth', require('./routes/auth'));
     _bp(`auth route loaded in ${Date.now() - s}ms`);
@@ -264,31 +310,46 @@ function startBackgroundServices() {
     app.use('/api/settings', require('./routes/settings'));
     _bp(`settings route loaded in ${Date.now() - s}ms`);
 
-    console.log('[Server] Loading standard API routes...');
-    const _t = Date.now();
-    const _r = (label, path, mod) => {
-        const s = Date.now();
-        app.use(path, require(mod));
-        console.log(`  [Route] ${label} loaded in ${Date.now() - s}ms`);
+    // ── Mark server READY now — health check passes, window opens ──
+    dbStatus.ready = true;
+    _bp('dbStatus.ready = true — health check will now pass');
+
+    // ── Lazy-require pattern for non-critical routes ──
+    // Routes are registered synchronously HERE (correct position, BEFORE the fallback handler).
+    // The actual module require() is deferred to the FIRST request that hits each route.
+    // Node.js caches require() so every subsequent request uses the cached module instantly.
+    // This saves ~138ms from the critical boot path without breaking Express middleware order.
+    const lazyRoute = (label, mod) => {
+        let handler = null;
+        return (req, res, next) => {
+            if (!handler) {
+                const s = Date.now();
+                handler = require(mod);
+                console.log(`  [Route:lazy] ${label} loaded on first request in ${Date.now() - s}ms`);
+            }
+            handler(req, res, next);
+        };
     };
-    _r('products',        '/api/products',         './routes/products');
-    _r('customers',       '/api/customers',        './routes/customers');
-    _r('sales',           '/api/sales',            './routes/sales');
-    _r('purchase-orders', '/api/purchase-orders',  './routes/purchase_orders');
-    _r('reports',         '/api/reports',           './routes/reports');
-    _r('categories',      '/api/categories',        './routes/categories');
-    _r('loyalty',         '/api/loyalty',           './routes/loyalty');
-    _r('credit-notes',    '/api/credit-notes',      './routes/credit_notes');
-    _r('subcategories',   '/api/subcategories',     './routes/subcategories');
-    _r('coupons',         '/api/coupons',           './routes/coupons');
-    _r('expenses',        '/api/expenses',          './routes/expenses');
-    _r('dashboard',       '/api/dashboard',         './routes/dashboard');
-    _r('employees',       '/api/employees',         './routes/employees');
-    _r('files',           '/api/files',             './routes/files');
-    _r('roles',           '/api/roles',             './routes/roles');
-    _r('debug',           '/api/debug',             './routes/debug');
-    _r('whatsapp',        '/api/whatsapp',          './routes/whatsapp');
-    console.log(`[Server] All routes loaded in ${Date.now() - _t}ms total`);
+
+    console.log('[Server] Registering API routes (lazy)...');
+    app.use('/api/products',        lazyRoute('products',        './routes/products'));
+    app.use('/api/customers',       lazyRoute('customers',       './routes/customers'));
+    app.use('/api/sales',           lazyRoute('sales',           './routes/sales'));
+    app.use('/api/purchase-orders', lazyRoute('purchase-orders', './routes/purchase_orders'));
+    app.use('/api/reports',         lazyRoute('reports',         './routes/reports'));
+    app.use('/api/categories',      lazyRoute('categories',      './routes/categories'));
+    app.use('/api/loyalty',         lazyRoute('loyalty',         './routes/loyalty'));
+    app.use('/api/credit-notes',    lazyRoute('credit-notes',    './routes/credit_notes'));
+    app.use('/api/subcategories',   lazyRoute('subcategories',   './routes/subcategories'));
+    app.use('/api/coupons',         lazyRoute('coupons',         './routes/coupons'));
+    app.use('/api/expenses',        lazyRoute('expenses',        './routes/expenses'));
+    app.use('/api/dashboard',       lazyRoute('dashboard',       './routes/dashboard'));
+    app.use('/api/employees',       lazyRoute('employees',       './routes/employees'));
+    app.use('/api/files',           lazyRoute('files',           './routes/files'));
+    app.use('/api/roles',           lazyRoute('roles',           './routes/roles'));
+    app.use('/api/debug',           lazyRoute('debug',           './routes/debug'));
+    app.use('/api/whatsapp',        lazyRoute('whatsapp',        './routes/whatsapp'));
+    _bp('all lazy routes registered');
 
     // ── DEFERRED HEAVY ROUTES (loaded 15s after boot) ──
     // Export (xlsx) and Backup (archiver/googleapis) are heavy to require.
@@ -335,6 +396,7 @@ function startBackgroundServices() {
         }
 
         res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.set('Content-Type', 'text/html; charset=utf-8');
         res.sendFile(path.join(distPath, 'index.html'), (err) => {
             if (err) {
                 // Ignore benign request aborted errors
@@ -369,6 +431,7 @@ app.use('/uploads', express.static(paths.UPLOADS_DIR, staticCacheOpts));
 // Serve index.html with no-cache (it references hashed assets that change on each build)
 app.get('/', (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Content-Type', 'text/html; charset=utf-8');
     res.sendFile(path.join(distPath, 'index.html'));
 });
 // Serve hashed static assets with long cache (filenames change on rebuild)

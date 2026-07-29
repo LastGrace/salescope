@@ -1,10 +1,10 @@
 {
     "name": "salescope",
-    "version": "2.0.1",
+    "version": "2.0.5",
     "description": "SaleScope POS",
     "main": "electron-main.obfuscated.js",
     "scripts": {
-        "start": "electron .",
+        "start": "electron electron-main.js",
         "dist": "node scripts/obfuscate-dist.js && electron-builder",
         "pack": "electron-builder --dir",
         "postinstall": "npm install --prefix server && npm install --prefix client"

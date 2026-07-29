@@ -3,6 +3,9 @@
         ".git",
         "node_modules",
         "uploads",
+        "backups",
+        "logs",
+        ".baileys_auth",
         ".wweb_session",
         ".wweb_session_openwa",
         ".wwebjs_auth",
@@ -14,6 +17,8 @@
         "IMS_WA_SESSION.data.json",
         "backup-config.json",
         "drive-tokens.json",
+        "drive-config.json",
+        "license.json",
         "*.log"
     ],
     "watch": [

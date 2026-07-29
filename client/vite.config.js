@@ -5,15 +5,7 @@ import obfuscator from 'vite-plugin-javascript-obfuscator'
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [
-    react(),
-    mode === 'production' && obfuscator({
-      compact: true,
-      controlFlowFlattening: false,
-      deadCodeInjection: false,
-      stringArray: true,
-      stringArrayEncoding: ['base64'],
-      stringArrayThreshold: 0.5,
-    })
+    react()
   ],
   build: {
     sourcemap: false,

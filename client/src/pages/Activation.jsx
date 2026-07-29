@@ -89,12 +89,12 @@ const Activation = ({ licenseStatus, onActivated }) => {
   const payload = licenseStatus.payload || {};
   const daysLeft = licenseStatus.daysLeft;
 
-  // Auto-poll license status every 10 seconds while pending
+  // Auto-poll license status every 5 seconds while pending
   React.useEffect(() => {
     if (!isPending) return;
     const interval = setInterval(() => {
       onActivated(); // re-checks /api/license/status
-    }, 10000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [isPending, onActivated]);
 
@@ -122,7 +122,7 @@ const Activation = ({ licenseStatus, onActivated }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '20px 0' }}>
               <span className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #334155', borderTop: '3px solid #f59e0b', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
-              <span style={{ fontSize: '13px', color: '#94a3b8' }}>Checking for approval every 10 seconds...</span>
+              <span style={{ fontSize: '13px', color: '#94a3b8' }}>Checking for approval every 5 seconds...</span>
             </div>
           </div>
         ) : isLicensed && !showRenewForm ? (
@@ -304,7 +304,7 @@ const Activation = ({ licenseStatus, onActivated }) => {
                 <AlertTriangle className="banner-icon" />
                 <div>
                   <h3>License Expired or Invalid</h3>
-                  <p>Cryptographic verification of your license key failed. Please enter a valid offline activation key below.</p>
+                  <p>{licenseStatus.reason || 'Cryptographic verification of your license key failed. Please enter a valid offline activation key below.'}</p>
                 </div>
               </div>
             )}

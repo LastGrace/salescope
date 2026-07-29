@@ -491,7 +491,9 @@ const verifyLicenseKey = (keyString) => {
  * Evaluates license keys, trials, and clock status.
  * Returns: { status: 'licensed' | 'trial_active' | 'trial_expired' | 'clock_tampered' | 'invalid', daysLeft: number, billsLeft: number, reason: string }
  */
-const getLicenseStatus = async (forceSync = false) => {
+let activeLicenseStatus = null;
+
+const performFullLicenseCheck = async (forceSync) => {
     const meta = getHiddenMetadata();
     const now = Date.now();
 
@@ -748,10 +750,22 @@ const getLicenseStatus = async (forceSync = false) => {
     }
 };
 
+const getLicenseStatus = async (forceSync = false) => {
+    if (!forceSync && activeLicenseStatus && activeLicenseStatus.status !== 'pending') {
+        return activeLicenseStatus;
+    }
+    const result = await performFullLicenseCheck(forceSync);
+    activeLicenseStatus = result;
+    return result;
+};
+
 /**
  * 6. Save License Key File (Activate)
  */
 const activateLicense = async (keyString) => {
+    // Invalidate cached status so the next status check gets fresh data from disk/network
+    activeLicenseStatus = null;
+
     // 1. Check if it's an online key (starts with SC-)
     const isOnlineKey = /^SC-/i.test(keyString.trim());
     
@@ -882,6 +896,7 @@ const deactivateLicense = async () => {
 
         try { fs.unlinkSync(LICENSE_FILE); } catch (err) {}
     }
+    activeLicenseStatus = null;
     await touchLastRunTime();
     return { success: true };
 };
@@ -890,27 +905,27 @@ const deactivateLicense = async () => {
  * Starts a background periodic validation check for online licenses
  */
 function startLicenseScheduler() {
-    console.log('[License Scheduler] Starting background licensing scheduler (interval: 12 hours)...');
+    console.log('[License Scheduler] Starting background licensing scheduler (interval: 15 minutes)...');
     
     // Perform initial validation 30 seconds after startup so DB is fully ready
     setTimeout(async () => {
         try {
             console.log('[License Scheduler] Running initial background license re-validation...');
-            await getLicenseStatus();
+            await getLicenseStatus(true); // Force sync
         } catch (e) {
             console.error('[License Scheduler] Initial verification error:', e.message);
         }
     }, 30000);
 
-// Run every 1 hour
+    // Run every 15 minutes
     setInterval(async () => {
         try {
             console.log('[License Scheduler] Running background license re-validation...');
-            await getLicenseStatus();
+            await getLicenseStatus(true); // Force sync
         } catch (e) {
             console.error('[License Scheduler] Periodic re-validation error:', e.message);
         }
-    }, 1 * 60 * 60 * 1000); 
+    }, 15 * 60 * 1000); 
 }
 
 module.exports = {
@@ -924,3 +939,8 @@ module.exports = {
     deactivateLicense,
     startLicenseScheduler
 };
+
+// Start initial offline-only cache warming immediately on boot
+setImmediate(() => {
+    getLicenseStatus(false).catch(() => {});
+});

@@ -66,7 +66,7 @@ router.get('/summary', verifyToken, checkPermission('dashboard.view'), async (re
             itemsTotal
         ] = await Promise.all([
             // Gross Sales
-            db.query(`SELECT COALESCE(SUM(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)), 0) as total FROM sales WHERE ${dateWhereClause}`, dateQueryParam),
+            db.query(`SELECT COALESCE(SUM(total_amount - credit_note_amount), 0) as total FROM sales WHERE ${dateWhereClause}`, dateQueryParam),
             // Bill Count
             db.query(`SELECT COUNT(*) as count FROM sales WHERE ${dateWhereClause}`, dateQueryParam),
             // Low Stock Count
@@ -183,7 +183,7 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
             db.query(`
                 SELECT 
                     DATE(created_at) as date, 
-                    SUM(total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = sales.id AND sp.payment_method = 'credit_note'), 0)) as total,
+                    SUM(total_amount - credit_note_amount) as total,
                     COUNT(*) as count
                 FROM sales 
                 WHERE ${dateWhereClause}
@@ -214,7 +214,7 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
                 JOIN products p ON si.product_id = p.id
                 JOIN sales s ON si.sale_id = s.id
                 WHERE ${sDateWhereClause}
-                GROUP BY p.id
+                GROUP BY p.id, p.name, p.barcode
                 ORDER BY qty DESC
                 LIMIT 5
             `, dateQueryParam),
@@ -230,7 +230,7 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
                     SUM(s.total_amount - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.payment_method = 'credit_note'), 0)) as lifetime_spend
                 FROM customers c
                 JOIN sales s ON c.id = s.customer_id
-                GROUP BY c.id
+                GROUP BY c.id, c.name, c.phone, c.loyalty_points
                 HAVING days_since >= 30 AND total_bills >= 3
                 ORDER BY total_bills DESC, lifetime_spend DESC
                 LIMIT 10
@@ -245,7 +245,7 @@ router.get('/sales-analytics', verifyToken, checkPermission('dashboard.view'), a
                     SUM((si.price_at_sale - si.cost_price_at_sale) * si.quantity) as total_profit_contribution
                 FROM sale_items si
                 JOIN products p ON si.product_id = p.id
-                GROUP BY p.id
+                GROUP BY p.id, p.name, p.barcode
                 HAVING total_qty >= 3
                 ORDER BY avg_margin_percent DESC
                 LIMIT 10
@@ -322,7 +322,7 @@ router.get('/inventory-analytics', verifyToken, checkPermission('dashboard.view'
                 JOIN products p ON si.product_id = p.id
                 JOIN sales s ON si.sale_id = s.id
                 WHERE ${sDateWhereClause}
-                GROUP BY p.id
+                GROUP BY p.id, p.name, p.barcode
                 ORDER BY sold DESC
                 LIMIT 5
             `, dateQueryParam)
@@ -358,7 +358,7 @@ router.get('/staff-performance', verifyToken, checkPermission('dashboard.view'),
             FROM sales s
             JOIN users u ON s.user_id = u.id
             WHERE s.created_at >= ?
-            GROUP BY u.id
+            GROUP BY u.id, u.name
             ORDER BY revenue DESC
         `, [startOfMonth]);
 
@@ -421,7 +421,7 @@ router.get('/customer-analytics', verifyToken, checkPermission('dashboard.view')
                 FROM sales s
                 JOIN customers c ON s.customer_id = c.id
                 WHERE ${sDateWhereClause}
-                GROUP BY c.id
+                GROUP BY c.id, c.name, c.phone
                 HAVING order_count > 1
                 ORDER BY order_count DESC
                 LIMIT 10
@@ -436,7 +436,7 @@ router.get('/customer-analytics', verifyToken, checkPermission('dashboard.view')
                 FROM sales s
                 JOIN customers c ON s.customer_id = c.id
                 WHERE ${sDateWhereClause}
-                GROUP BY c.id
+                GROUP BY c.id, c.name, c.phone
                 ORDER BY total_spent DESC
                 LIMIT 10
             `, dateQueryParam)

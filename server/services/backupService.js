@@ -202,7 +202,11 @@ const scheduleBackup = (cronExpression, autoUploadDrive = false) => {
 
 const getSchedule = () => {
     if (fs.existsSync(BACKUP_CONFIG_FILE)) {
-        return JSON.parse(fs.readFileSync(BACKUP_CONFIG_FILE));
+        try {
+            return JSON.parse(fs.readFileSync(BACKUP_CONFIG_FILE, 'utf8'));
+        } catch (e) {
+            console.warn('[Backup] Invalid config file, using defaults');
+        }
     }
     return { schedule: '0 0 * * *', autoUploadDrive: false };
 };

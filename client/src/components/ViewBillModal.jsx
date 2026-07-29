@@ -71,12 +71,12 @@ const ViewBillModal = ({ sale, onClose }) => {
                         imageTimeout: 0,
                         ignoreElements: (element) => element.classList.contains('no-print') || element.tagName === 'BUTTON'
                     });
-                    const imgData = canvas.toDataURL('image/png', 1.0);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.8);
                     const pdfWidth = 80;
                     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
                     // Increased buffer from +5 to +10 to prevent cutting off footer/QR
                     const pdfCustom = new jsPDF('p', 'mm', [pdfWidth, pdfHeight + 10]);
-                    pdfCustom.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    pdfCustom.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
 
                     // 2. Convert to Blob
                     const pdfBlob = pdfCustom.output('blob');
@@ -88,12 +88,17 @@ const ViewBillModal = ({ sale, onClose }) => {
                     formData.append('caption', storeSettings.whatsapp_caption || 'Thank you for shopping.');
                     formData.append('file', file);
 
-                    await axios.post('/api/whatsapp/sendMedia', formData);
-
-                    toast.success('Sent successfully', { id: toastId });
+                    const res = await axios.post('/api/whatsapp/sendMedia', formData);
+                    
+                    if (res.data.delivered) {
+                        toast.success('Sent and Delivered to phone', { id: toastId });
+                    } else {
+                        toast.success('Sent to WhatsApp server (Pending Delivery)', { id: toastId });
+                    }
                 } catch (err) {
                     console.error(err);
-                    toast.error('Terminated', { id: toastId });
+                    const errorMsg = err.response?.data?.error || err.message || 'Failed to send';
+                    toast.error(errorMsg, { id: toastId });
                 }
             }
         });
@@ -118,13 +123,13 @@ const ViewBillModal = ({ sale, onClose }) => {
                 imageTimeout: 0,
                 ignoreElements: (element) => element.classList.contains('no-print') || element.tagName === 'BUTTON'
             });
-            const imgData = canvas.toDataURL('image/png', 1.0);
+            const imgData = canvas.toDataURL('image/jpeg', 0.8);
             const pdfWidth = 80;
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
             // Increased buffer from +5 to +10
             const pdfCustom = new jsPDF('p', 'mm', [pdfWidth, pdfHeight + 10]);
-            pdfCustom.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdfCustom.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
             pdfCustom.save(`bill_${sale.id}.pdf`);
         } catch (err) {
             console.error('Failed to generate PDF', err);
@@ -150,13 +155,13 @@ const ViewBillModal = ({ sale, onClose }) => {
                 imageTimeout: 0,
                 ignoreElements: (element) => element.classList.contains('no-print') || element.tagName === 'BUTTON'
             });
-            const imgData = canvas.toDataURL('image/png', 1.0);
+            const imgData = canvas.toDataURL('image/jpeg', 0.8);
             const pdfWidth = 80;
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
             // Increased buffer from +5 to +10
             const pdfCustom = new jsPDF('p', 'mm', [pdfWidth, pdfHeight + 10]);
-            pdfCustom.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdfCustom.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
 
             // Auto-print configuration
             pdfCustom.autoPrint();
@@ -242,26 +247,32 @@ const ViewBillModal = ({ sale, onClose }) => {
 
                         {/* Invoice Meta Info */}
                         <div className="bill-meta-section">
-                            <div className="bill-meta-item">
-                                <span className="bill-meta-label">Inv No</span>
-                                <span className="bill-meta-value" style={{ color: '#dc2626', fontFamily: 'monospace', fontSize: '0.9rem' }}>SINV-{sale.id}</span>
+                            <div className="bill-meta-row">
+                                <span>
+                                    <span className="bill-meta-label">Inv No: </span>
+                                    <span className="bill-meta-value">SINV-{sale.id}</span>
+                                </span>
+                                <span>
+                                    <span className="bill-meta-label">Date: </span>
+                                    <span className="bill-meta-value">{new Date(sale.created_at).toLocaleDateString('en-GB')}</span>
+                                </span>
                             </div>
-                            <div className="bill-meta-item">
-                                <span className="bill-meta-label">Date</span>
-                                <span className="bill-meta-value">{new Date(sale.created_at).toLocaleDateString('en-GB')}</span>
-                            </div>
-                            <div className="bill-meta-item">
-                                <span className="bill-meta-label">Customer</span>
-                                <span className="bill-meta-value" style={{ textTransform: 'uppercase' }}>{sale.customer_name || 'Customer'}</span>
-                            </div>
-                            <div className="bill-meta-item">
-                                <span className="bill-meta-label">Time</span>
-                                <span className="bill-meta-value">{new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="bill-meta-row">
+                                <span>
+                                    <span className="bill-meta-label">Customer: </span>
+                                    <span className="bill-meta-value">{sale.customer_name || 'Customer'}</span>
+                                </span>
+                                <span>
+                                    <span className="bill-meta-label">Time: </span>
+                                    <span className="bill-meta-value">{new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </span>
                             </div>
                             {sale.customer_phone && (
-                                <div className="bill-meta-item">
-                                    <span className="bill-meta-label">Contact</span>
-                                    <span className="bill-meta-value">{sale.customer_phone}</span>
+                                <div className="bill-meta-row">
+                                    <span>
+                                        <span className="bill-meta-label">Contact: </span>
+                                        <span className="bill-meta-value">{sale.customer_phone}</span>
+                                    </span>
                                 </div>
                             )}
                         </div>

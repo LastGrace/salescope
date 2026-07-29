@@ -7,7 +7,7 @@ import {
     CreditCard, LayoutDashboard, Package, Wallet, Ban, Ticket, Users,
     MessageSquare, Star, RotateCcw, Folder, FileText,
     Database, Settings, ShoppingCart, TrendingUp, ChartNoAxesCombined, Plus, Smartphone, Truck, Rocket,
-    Info, Globe, Instagram, Facebook, Youtube, Twitter, Mail, X, ExternalLink, Store, Shield
+    Info, Globe, Mail, X, ExternalLink, Store, Shield, History
 } from 'lucide-react';
 
 import '../styles/Dashboard.css';
@@ -56,6 +56,7 @@ const Dashboard = () => {
         { label: 'Barcodes', path: '/barcodes', icon: Package, permission: 'dashboard.view', color: 'theme-green' },
         { label: 'Coupons', path: '/coupons', icon: Ticket, permission: 'dashboard.view', color: 'theme-purple' },
         { label: 'Database', path: '/database', icon: Database, permission: 'dashboard.view', color: 'theme-cyan' },
+        { label: 'WhatsApp History', path: '/whatsapp-activity', icon: History, permission: 'dashboard.view', color: 'theme-cyan' },
         { label: 'Employees', path: '/employees', icon: Users, permission: 'employees.view', color: 'theme-indigo' },
         { label: 'Store Settings', path: '/settings/store', icon: Settings, permission: 'dashboard.view', color: 'theme-red' },
     ], []);

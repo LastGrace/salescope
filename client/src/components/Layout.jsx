@@ -165,6 +165,7 @@ const Layout = () => {
                 </nav>
                 <div className="sidebar-footer">
                     <button
+                        type="button"
                         onClick={toggleSidebarMode}
                         className="btn nav-link sidebar-btn-mode sidebar-action-btn"
                         title={`Sidebar Mode: ${sidebarMode === 'auto' ? 'Auto (Hover)' : 'Manual (Logo)'}`}
@@ -172,11 +173,11 @@ const Layout = () => {
                         {sidebarMode === 'auto' ? <MousePointer2 size={20} /> : <Hand size={20} />}
                         <span className="nav-text">Mode: {sidebarMode === 'auto' ? 'Auto' : 'Logo'}</span>
                     </button>
-                    <button onClick={() => setShowThemeSelector(true)} className="btn nav-link sidebar-btn-theme sidebar-action-btn" title="Choose Theme">
+                    <button type="button" onClick={() => setShowThemeSelector(true)} className="btn nav-link sidebar-btn-theme sidebar-action-btn" title="Choose Theme">
                         <Palette size={20} />
                         <span className="nav-text">Theme</span>
                     </button>
-                    <button onClick={handleLogout} className="btn nav-link sidebar-btn-logout sidebar-action-btn" title="Logout">
+                    <button type="button" onClick={handleLogout} className="btn nav-link sidebar-btn-logout sidebar-action-btn" title="Logout">
                         <LogOut size={20} /> <span className="nav-text role-text-capital">{user?.role}</span>
                     </button>
                 </div>
@@ -184,8 +185,14 @@ const Layout = () => {
             <main className={`main-content ${isPOS ? 'pos-mode' : ''}`}>
                 {/* Global Header for Electron Navigation */}
 
-
-                <Outlet />
+                <React.Suspense fallback={
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', color: 'var(--text-muted)' }}>
+                        <span style={{ width: 30, height: 30, border: '3px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                    </div>
+                }>
+                    <Outlet />
+                </React.Suspense>
             </main>
 
             <ThemeSelector

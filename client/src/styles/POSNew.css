@@ -570,41 +570,40 @@
     table-layout: fixed; /* Ensures equal distribution of remaining space for un-sized columns */
 }
 
-/* Explicit Column Widths */
+/* Explicit Column Widths (Percentages for even spacing) */
 .col-idx {
-    width: 40px;
+    width: 4%;
     text-align: center !important;
 }
 
 .col-barcode {
-    width: 120px;
+    width: 11%;
 }
 
 .col-item {
-    width: auto;
-    min-width: 150px;
+    width: 24%;
 }
 
 .col-price {
-    width: 90px;
+    width: 10%;
 }
 
 .col-qty {
-    width: 120px;
+    width: 10%;
 }
 
 .col-disc {
-    width: auto;
+    width: 9%;
     text-align: center !important;
 }
 
 .col-total {
-    width: 100px;
+    width: 9%;
     text-align: right !important;
 }
 
 .col-actions {
-    width: 50px;
+    width: 5%;
     text-align: center !important;
 }
 
@@ -1660,7 +1659,7 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    /* backdrop-filter: blur(4px); - Disabled for performance */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2485,7 +2484,7 @@
     right: 0 !important;
     bottom: 0 !important;
     background: rgba(0, 0, 0, 0.6) !important;
-    backdrop-filter: blur(10px);
+    /* backdrop-filter: blur(10px); - Disabled for performance */
     z-index: 999999 !important;
     display: flex;
     align-items: center;

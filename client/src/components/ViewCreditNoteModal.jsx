@@ -77,7 +77,7 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
                     await new Promise(resolve => setTimeout(resolve, 100));
 
                     const canvas = await html2canvas(input, {
-                        scale: 4,
+                        scale: 2,
                         useCORS: true,
                         logging: false,
                         backgroundColor: '#ffffff',
@@ -87,11 +87,11 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
                         imageTimeout: 0,
                         ignoreElements: (element) => element.classList.contains('no-print') || element.tagName === 'BUTTON'
                     });
-                    const imgData = canvas.toDataURL('image/png', 1.0);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.7);
                     const pdfWidth = 80;
                     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
                     const pdfCustom = new jsPDF('p', 'mm', [pdfWidth, pdfHeight + 10]);
-                    pdfCustom.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    pdfCustom.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
 
                     const pdfBlob = pdfCustom.output('blob');
                     const file = new File([pdfBlob], `credit_note_${creditNote.code}.pdf`, { type: 'application/pdf' });
@@ -101,12 +101,16 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
                     formData.append('caption', `Here is your Credit Note: ${creditNote.code} for amount ₹${parseFloat(creditNote.balance).toFixed(2)}. Valid until ${new Date(creditNote.expiry_date).toLocaleDateString('en-GB')}.`);
                     formData.append('file', file);
 
-                    await axios.post('/api/whatsapp/sendMedia', formData);
-
-                    toast.success('Sent successfully', { id: toastId });
+                    const res = await axios.post('/api/whatsapp/sendMedia', formData);
+                    if (res.data.delivered) {
+                        toast.success('Sent and Delivered to phone', { id: toastId });
+                    } else {
+                        toast.success('Sent to WhatsApp server (Pending Delivery)', { id: toastId });
+                    }
                 } catch (err) {
                     console.error(err);
-                    toast.error('Failed to send', { id: toastId });
+                    const errorMsg = err.response?.data?.error || err.message || 'Failed to send';
+                    toast.error(errorMsg, { id: toastId });
                 }
             }
         });
@@ -120,7 +124,7 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
             await new Promise(resolve => setTimeout(resolve, 100));
 
             const canvas = await html2canvas(input, {
-                scale: 4,
+                scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
@@ -130,12 +134,12 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
                 imageTimeout: 0,
                 ignoreElements: (element) => element.classList.contains('no-print') || element.tagName === 'BUTTON'
             });
-            const imgData = canvas.toDataURL('image/png', 1.0);
+            const imgData = canvas.toDataURL('image/jpeg', 0.7);
             const pdfWidth = 80;
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
             const pdfCustom = new jsPDF('p', 'mm', [pdfWidth, pdfHeight + 10]);
-            pdfCustom.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdfCustom.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
             pdfCustom.save(`credit_note_${creditNote.code}.pdf`);
         } catch (err) {
             console.error('Failed to generate PDF', err);
@@ -150,7 +154,7 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
             await new Promise(resolve => setTimeout(resolve, 100));
 
             const canvas = await html2canvas(input, {
-                scale: 4,
+                scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
@@ -160,12 +164,12 @@ const ViewCreditNoteModal = ({ creditNote, onClose, onViewSale }) => {
                 imageTimeout: 0,
                 ignoreElements: (element) => element.classList.contains('no-print') || element.tagName === 'BUTTON'
             });
-            const imgData = canvas.toDataURL('image/png', 1.0);
+            const imgData = canvas.toDataURL('image/jpeg', 0.7);
             const pdfWidth = 80;
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
             const pdfCustom = new jsPDF('p', 'mm', [pdfWidth, pdfHeight + 10]);
-            pdfCustom.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdfCustom.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
 
             pdfCustom.autoPrint();
             const blob = pdfCustom.output('blob');

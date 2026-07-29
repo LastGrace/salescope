@@ -150,9 +150,40 @@ CREATE TABLE IF NOT EXISTS po_items (
     product_name VARCHAR(255),
     barcode VARCHAR(50),
     quantity INT NOT NULL,
+);
+
+-- 10. Customers Table
+CREATE TABLE IF NOT EXISTS customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) UNIQUE,
+    email VARCHAR(255),
+    loyalty_points INT DEFAULT 0,
+    total_points_redeemed INT DEFAULT 0,
+    total_points_earned INT DEFAULT 0,
+    credit_balance DECIMAL(10,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. Purchase Orders
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    vendor_name VARCHAR(255) NOT NULL,
+    status ENUM('PENDING', 'RECEIVED') DEFAULT 'PENDING',
+    total_cost DECIMAL(10,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS po_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    po_id INT NOT NULL,
+    product_id INT,
+    product_name VARCHAR(255),
+    barcode VARCHAR(50),
+    quantity INT NOT NULL,
     cost_price DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
     INDEX idx_po_items_po_id (po_id)
 );
 
@@ -167,15 +198,14 @@ CREATE TABLE IF NOT EXISTS sales (
     coupon_code VARCHAR(50),
     coupon_amount DECIMAL(10,2) DEFAULT 0.00,
     loyalty_amount DECIMAL(10,2) DEFAULT 0.00,
+    credit_note_amount DECIMAL(10,2) DEFAULT 0.00,
     was_pay_later BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_sales_created_at (created_at),
     INDEX idx_sales_customer_id (customer_id),
     INDEX idx_sales_user_id (user_id)
-);
-
 CREATE TABLE IF NOT EXISTS sale_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sale_id INT NOT NULL,

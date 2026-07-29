@@ -133,7 +133,12 @@ router.post('/store', verifyToken, upload.any(), async (req, res) => {
         show_bill_logo,
         show_login_logo,
         show_pos_background,
-        show_product_add_sound
+        show_product_add_sound,
+        logo_url,
+        bill_logo_url,
+        login_logo_url,
+        pos_background_url,
+        product_add_sound_url
     } = req.body || {};
 
     let logoUrl = null;
@@ -147,11 +152,12 @@ router.post('/store', verifyToken, upload.any(), async (req, res) => {
         try {
             const [currentRows] = await db.query('SELECT logo_url, bill_logo_url, login_logo_url, pos_background_url, product_add_sound_url FROM store_settings WHERE id = 1');
             if (currentRows && currentRows.length > 0) {
-                logoUrl = currentRows[0].logo_url || null;
-                billLogoUrl = currentRows[0].bill_logo_url || null;
-                loginLogoUrl = currentRows[0].login_logo_url || null;
-                posBackgroundUrl = currentRows[0].pos_background_url || null;
-                productAddSoundUrl = currentRows[0].product_add_sound_url || null;
+                // If explicitly cleared by user (passed as empty string), set to empty string. Otherwise keep database value.
+                logoUrl = logo_url === '' ? '' : (currentRows[0].logo_url || null);
+                billLogoUrl = bill_logo_url === '' ? '' : (currentRows[0].bill_logo_url || null);
+                loginLogoUrl = login_logo_url === '' ? '' : (currentRows[0].login_logo_url || null);
+                posBackgroundUrl = pos_background_url === '' ? '' : (currentRows[0].pos_background_url || null);
+                productAddSoundUrl = product_add_sound_url === '' ? '' : (currentRows[0].product_add_sound_url || null);
             }
         } catch (selectErr) {
             console.log('[Settings SELECT] Missing columns or uninitialized, proceeding with defaults:', selectErr.message);
@@ -267,6 +273,64 @@ router.post('/store', verifyToken, upload.any(), async (req, res) => {
         }
 
         res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// GET /api/settings/messaging
+router.get('/messaging', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT * FROM messaging_settings WHERE id = 1');
+        res.json(rows[0] || {});
+    } catch (e) {
+        if (e.errno === 1146 || e.errno === 1054) {
+            console.log('[LazyMigrate] Detected missing messaging_settings table or column. Running auto-migrate...');
+            try {
+                await checkAndMigrate();
+                const [rows] = await db.query('SELECT * FROM messaging_settings WHERE id = 1');
+                return res.json(rows[0] || {});
+            } catch (retryErr) {
+                console.error('[LazyMigrate] Failed:', retryErr);
+            }
+        }
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/settings/messaging
+router.post('/messaging', verifyToken, async (req, res) => {
+    const {
+        baileys_enabled, whatshub_enabled, default_provider, whatshub_api_key,
+        override_invoices, override_bills, override_bulk, override_marketing, override_sync
+    } = req.body;
+
+    const query = `
+        UPDATE messaging_settings SET 
+            baileys_enabled = ?, whatshub_enabled = ?, default_provider = ?, 
+            whatshub_api_key = ?, override_invoices = ?, override_bills = ?, 
+            override_bulk = ?, override_marketing = ?, override_sync = ?
+        WHERE id = 1
+    `;
+    const values = [
+        baileys_enabled ? 1 : 0, whatshub_enabled ? 1 : 0, default_provider || 'baileys',
+        whatshub_api_key || null, override_invoices || null, override_bills || null,
+        override_bulk || null, override_marketing || null, override_sync || null
+    ];
+
+    try {
+        await db.query(query, values);
+        res.json({ success: true });
+    } catch (e) {
+        if (e.errno === 1146 || e.errno === 1054) {
+            console.log('[LazyMigrate] Detected missing messaging_settings table or column on UPDATE. Running auto-migrate...');
+            try {
+                await checkAndMigrate();
+                await db.query(query, values);
+                return res.json({ success: true });
+            } catch (retryErr) {
+                console.error('[LazyMigrate] Retry failed:', retryErr);
+            }
+        }
+        res.status(500).json({ error: e.message });
     }
 });
 

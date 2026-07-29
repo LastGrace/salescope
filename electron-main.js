@@ -3,6 +3,7 @@ const EBOOT_START = Date.now();
 const _ebp = (label) => console.log(`  [E-BOOT] ${label} @ +${Date.now() - EBOOT_START}ms`);
 
 const { app, BrowserWindow, ipcMain } = require('electron');
+app.disableHardwareAcceleration();
 const path = require('path');
 const fs = require('fs');
 const { fork } = require('child_process');
@@ -71,6 +72,9 @@ function logCrash(label, err) {
 
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err));
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason));
+app.on('child-process-gone', (event, details) => {
+    logCrash('ChildProcessGone', new Error(`Child process gone. Type: ${details.type}, Reason: ${details.reason}, Exit Code: ${details.exitCode}`));
+});
 
 // ── Helper: Resolve Resource Path ──────────────────────────────────
 function resolveResource(relativePath) {
@@ -138,6 +142,14 @@ function createWindow() {
             mainWindow.webContents.closeDevTools();
         });
     }
+
+    // Prevent accidental downloads of the app's HTML (e.g. Alt+Clicking a React Router Link)
+    mainWindow.webContents.session.on('will-download', (event, item, webContents) => {
+        if (item.getMimeType() === 'text/html' || item.getURL().includes('localhost:') || item.getURL().includes('127.0.0.1:')) {
+            event.preventDefault();
+            console.log('[Main] Prevented accidental download of internal route:', item.getURL());
+        }
+    });
 
     // Close Confirmation Handler
     let isQuitting = false;
@@ -362,8 +374,13 @@ async function runHeavyCleanup() {
     await new Promise(r => setTimeout(r, 500));
 }
 
+// Module-level latch to ensure we only load the main URL once
+let isServerReady = false;
+
 // ── Health Check ───────────────────────────────────────────────────
 function checkServer(attemptCount = 0) {
+    if (isServerReady) return;
+
     // Capture mainWindow at call time to avoid null-ref in async callbacks
     const win = mainWindow;
 
@@ -374,14 +391,19 @@ function checkServer(attemptCount = 0) {
         });
     }
 
+    let done = false; // Prevent multiple retries/callbacks from same request
+
     // Force IPv4 using 127.0.0.1 instead of localhost
     const req = http.get(`http://127.0.0.1:${SERVER_PORT}/api/health`, (res) => {
         // Always drain the response body to avoid ECONNRESET
         let body = '';
         res.on('data', chunk => body += chunk);
         res.on('end', () => {
+            if (done) return;
+            done = true;
             if (res.statusCode === 200) {
                 _ebp('Server is healthy — opening window');
+                isServerReady = true;
                 if (win) {
                     win.webContents.send('status-update', { status: 'ready', message: 'Finalizing...' });
                     win.loadURL(`http://127.0.0.1:${SERVER_PORT}`);
@@ -409,7 +431,7 @@ function checkServer(attemptCount = 0) {
                         message: 'Initializing Database... This may take a minute.'
                     });
                 }
-                setTimeout(() => checkServer(attemptCount + 1), 20);
+                setTimeout(() => checkServer(attemptCount + 1), 80);
             } else if (status === 'error') {
                 const msg = hint || message || 'Database connection failed. Retrying...';
                 if (win && attemptCount % 10 === 0) {
@@ -417,18 +439,20 @@ function checkServer(attemptCount = 0) {
                     win.webContents.send('status-update', { status: 'checking', message: msg });
                 }
                 // Keep retrying non-stop
-                setTimeout(() => checkServer(attemptCount + 1), 20);
+                setTimeout(() => checkServer(attemptCount + 1), 80);
             } else {
                 const msg = hint || message || 'Server starting...';
                 if (win && attemptCount % 10 === 0) {
                     win.webContents.send('status-update', { status: 'checking', message: msg });
                 }
-                setTimeout(() => checkServer(attemptCount + 1), 20);
+                setTimeout(() => checkServer(attemptCount + 1), 80);
             }
         });
     });
 
     req.on('error', (err) => {
+        if (done) return;
+        done = true;
         if (win && attemptCount % 10 === 0) {
             console.error(`[Main] Server unreachable (attempt ${attemptCount}). Error: ${err.message}`);
             win.webContents.send('status-update', {
@@ -437,7 +461,7 @@ function checkServer(attemptCount = 0) {
             });
         }
         // Retry indefinitely
-        setTimeout(() => checkServer(attemptCount + 1), 20);
+        setTimeout(() => checkServer(attemptCount + 1), 80);
     });
 }
 

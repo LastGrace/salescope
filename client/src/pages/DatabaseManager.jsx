@@ -422,12 +422,12 @@ const DatabaseManager = () => {
                                     <td className="database-manager__table-meta">{new Date(b.created).toLocaleString()}</td>
                                     <td className="database-manager__table-meta">{formatSize(b.size)}</td>
                                     <td className="database-manager__table-actions">
-                                        <button onClick={() => handleDownload(b.name)} className="database-manager__action-link database-manager__action-link--download"><Download className="database-manager__action-icon" /> Download</button>
-                                        <button onClick={() => handleRestore(b.name)} disabled={loading} className="database-manager__action-link database-manager__action-link--restore"><RotateCcw className="database-manager__action-icon" /> Restore</button>
-                                        <button onClick={() => handleRename(b.name)} disabled={loading} className="database-manager__action-link database-manager__action-link--edit"><Edit className="database-manager__action-icon" /> Rename</button>
-                                        <button onClick={() => handleDelete(b.name)} disabled={loading} className="database-manager__action-link database-manager__action-link--delete"><Trash2 className="database-manager__action-icon" /> Delete</button>
+                                        <button title="Download" onClick={() => handleDownload(b.name)} className="database-manager__action-link database-manager__action-link--download"><Download className="database-manager__action-icon" /></button>
+                                        <button title="Restore" onClick={() => handleRestore(b.name)} disabled={loading} className="database-manager__action-link database-manager__action-link--restore"><RotateCcw className="database-manager__action-icon" /></button>
+                                        <button title="Rename" onClick={() => handleRename(b.name)} disabled={loading} className="database-manager__action-link database-manager__action-link--edit"><Edit className="database-manager__action-icon" /></button>
+                                        <button title="Delete" onClick={() => handleDelete(b.name)} disabled={loading} className="database-manager__action-link database-manager__action-link--delete"><Trash2 className="database-manager__action-icon" /></button>
                                         {driveStatus.connected && (
-                                            <button onClick={() => handleUploadToDrive(b.name)} className="database-manager__action-link database-manager__action-link--cloud"><Cloud className="database-manager__action-icon" /> Drive</button>
+                                            <button title="Upload to Drive" onClick={() => handleUploadToDrive(b.name)} className="database-manager__action-link database-manager__action-link--cloud"><Cloud className="database-manager__action-icon" /></button>
                                         )}
                                     </td>
                                 </tr>

@@ -1,4 +1,4 @@
-/* SalesRecords.css - Enhanced Modern Design */
+﻿/* SalesRecords.css - Enhanced Modern Design */
 
 .sales-container {
     min-height: calc(100vh - 4rem);
@@ -412,7 +412,7 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    /* backdrop-filter: blur(4px); - Disabled for performance */
     display: flex;
     justify-content: center;
     align-items: center;

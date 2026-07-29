@@ -180,6 +180,9 @@ router.post('/', verifyToken, async (req, res) => {
                     // Record in credit_note_usage table
                     await connection.query('INSERT INTO credit_note_usage (credit_note_id, sale_id, amount_used) VALUES (?, ?, ?)',
                         [cn.id, sale_id, credit_note_amount_used]);
+                    
+                    // Update credit_note_amount directly in sales to avoid N+1 queries in dashboard
+                    await connection.query('UPDATE sales SET credit_note_amount = ? WHERE id = ?', [credit_note_amount_used, sale_id]);
                 }
             }
         }

@@ -14,7 +14,7 @@
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^1.27.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-barcode": "^1.6.1",
@@ -22,7 +22,11 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.12.0",
     "react-to-print": "^3.2.0",
+    "react-virtualized-auto-sizer": "^2.0.3",
+    "react-virtuoso": "^4.18.11",
+    "react-window": "^2.3.0",
     "recharts": "^3.7.0",
+    "use-debounce": "^10.1.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

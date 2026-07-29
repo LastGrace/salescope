@@ -12,25 +12,14 @@ async function obfuscate() {
     const serverDir = path.join(rootDir, 'server');
 
     // 0. Auto-increment version in package.json
-    console.log('Checking and incrementing version number...');
+    console.log('Skipping version increment as requested.');
     const packageJsonPath = path.join(rootDir, 'package.json');
     if (fs.existsSync(packageJsonPath)) {
         const packageJson = fs.readJsonSync(packageJsonPath);
-        const oldVersion = packageJson.version;
-        const parts = oldVersion.split('.');
-        if (parts.length === 3) {
-            parts[2] = (parseInt(parts[2], 10) + 1).toString();
-            const newVersion = parts.join('.');
-            packageJson.version = newVersion;
-            fs.writeJsonSync(packageJsonPath, packageJson, { spaces: 4 });
-            console.log(`Version bumped from ${oldVersion} to ${newVersion}`);
-        } else {
-            console.warn(`Could not parse version: ${oldVersion}. Skipping auto-increment.`);
-        }
+        // Skipped auto bump
     } else {
-        console.warn('package.json not found. Skipping auto-increment.');
+        console.warn(`Could not find package.json at ${packageJsonPath}`);
     }
-
     // 1. Clean previous builds
     console.log('Cleaning old build artifacts...');
     if (fs.existsSync(distObfuscated)) fs.removeSync(distObfuscated);

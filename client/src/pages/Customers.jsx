@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Download, Upload, RefreshCcw, CreditCard, X, Clock, FileText, User, Users, Star, Search, Save, Eye, Edit, Trash } from 'lucide-react';
+import { Plus, Download, Upload, RefreshCcw, CreditCard, X, Clock, FileText, User, Users, Star, Search, Save, Eye, Edit, Trash, Smartphone, PencilSparkles, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import { normalizePhone } from '../utils/phoneUtils';
 import ConfirmModal from '../components/ConfirmModal';
 import ViewBillModal from '../components/ViewBillModal';
 import CustomerDetailModal from '../components/CustomerDetailModal';
@@ -23,10 +24,25 @@ const Customers = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [messagingSettings, setMessagingSettings] = useState(null);
 
     useEffect(() => {
         fetchCustomers();
+        fetchMessagingSettings();
     }, []);
+
+    const fetchMessagingSettings = async () => {
+        try {
+            const res = await axios.get('/api/settings/messaging');
+            setMessagingSettings(res.data);
+        } catch (err) {
+            console.error('Failed to fetch messaging settings:', err);
+        }
+    };
+
+    const isWhatsHubInUse = messagingSettings
+        ? (messagingSettings.whatshub_enabled === 1 || messagingSettings.whatshub_enabled === '1' || messagingSettings.whatshub_enabled === true)
+        : false;
 
     const fetchCustomers = async () => {
         try {
@@ -93,6 +109,28 @@ const Customers = () => {
         }
     };
 
+    const handleBulkSyncWhatsHub = async () => {
+        const ids = Array.from(selectedIds);
+        const toastId = toast.loading('Syncing to WhatsHub...');
+        try {
+            const res = await axios.post('/api/customers/sync-whatshub', { ids });
+            toast.success(res.data.message, { id: toastId });
+            setSelectedIds(new Set());
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Sync failed', { id: toastId });
+        }
+    };
+
+    const handleSyncWhatsHub = async (id) => {
+        const toastId = toast.loading('Syncing to WhatsHub...');
+        try {
+            const res = await axios.post('/api/customers/sync-whatshub', { ids: [id] });
+            toast.success(res.data.message, { id: toastId });
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Sync failed', { id: toastId });
+        }
+    };
+
     const handleRecalibrate = async () => {
         setConfirmAction({
             isOpen: true,
@@ -102,22 +140,42 @@ const Customers = () => {
         });
     };
 
+    const handleNormalizeContacts = async () => {
+        setConfirmAction({
+            isOpen: true,
+            type: 'normalize',
+            title: 'Normalize Contacts',
+            message: 'This will update all contacts to ensure their phone numbers have the correct country code (+91) format for WhatsApp. Continue?'
+        });
+    };
+
+    const confirmNormalizeContacts = async () => {
+        const toastId = toast.loading('Normalizing contacts...');
+        try {
+            const res = await axios.post('/api/customers/normalize-all');
+            toast.success(res.data.message, { id: toastId });
+            fetchCustomers();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Normalization failed', { id: toastId });
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const cleanPhone = formData.phone.replace(/\D/g, '');
-        let formattedPhone = formData.phone;
-        if (cleanPhone.length === 10) formattedPhone = '+91' + cleanPhone;
-        else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) formattedPhone = '+' + cleanPhone;
-        else return toast.error('Please enter a valid 10-digit phone number.');
+
+        // Unified phone validation
+        const phoneResult = normalizePhone(formData.phone);
+        if (phoneResult.error) return toast.error(phoneResult.error);
 
         try {
-            const payload = { ...formData, phone: formattedPhone };
+            const payload = { ...formData, phone: phoneResult.phone };
             if (editingCustomer) await axios.put(`/api/customers/${editingCustomer.id}`, payload);
             else await axios.post('/api/customers', payload);
             setShowForm(false);
             setEditingCustomer(null);
             setFormData({ name: '', phone: '', loyalty_points: '' });
             fetchCustomers();
+            toast.success(editingCustomer ? 'Customer updated' : 'Customer added');
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error saving customer');
         }
@@ -163,22 +221,52 @@ const Customers = () => {
                 const data = evt.target.result;
                 const workbook = XLSX.read(data, { type: 'array' });
                 const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                const formattedData = jsonData.map(row => {
+
+                const validRows = [];
+                const invalidRows = [];
+
+                jsonData.forEach((row, idx) => {
                     const getVal = (keys) => {
-                        for (const key of keys) if (row[key] !== undefined) return row[key];
+                        for (const key of keys) if (row[key] !== undefined) return String(row[key]);
                         return '';
                     };
-                    return {
-                        name: getVal(['Customer Name', 'Name', 'name']),
-                        phone: getVal(['Phone Number', 'Phone', 'phone']),
-                        email: getVal(['Email Address', 'Email', 'email']),
-                        address: getVal(['Shipping Address', 'Address', 'address']),
-                        loyalty_points: getVal(['Loyalty Points', 'Points', 'loyalty_points']) || 0
-                    };
+                    const name = getVal(['Customer Name', 'Name', 'name']);
+                    const rawPhone = getVal(['Phone Number', 'Phone', 'phone']);
+                    const email = getVal(['Email Address', 'Email', 'email']);
+                    const address = getVal(['Shipping Address', 'Address', 'address']);
+                    const loyalty_points = getVal(['Loyalty Points', 'Points', 'loyalty_points']) || 0;
+
+                    if (!name) {
+                        invalidRows.push({ row: idx + 2, name: name || '(blank)', phone: rawPhone, reason: 'Name is required' });
+                        return;
+                    }
+
+                    const phoneResult = normalizePhone(rawPhone);
+                    if (phoneResult.error) {
+                        invalidRows.push({ row: idx + 2, name, phone: rawPhone, reason: phoneResult.error });
+                        return;
+                    }
+
+                    validRows.push({ name, phone: phoneResult.phone, email, address, loyalty_points });
                 });
-                const res = await axios.post('/api/customers/batch', formattedData);
-                toast.success(res.data.message || 'Import successful');
-                fetchCustomers();
+
+                if (validRows.length > 0) {
+                    const res = await axios.post('/api/customers/batch', validRows);
+                    toast.success(res.data.message || `Imported ${validRows.length} customers`);
+                    fetchCustomers();
+                }
+
+                if (invalidRows.length > 0) {
+                    console.warn('[Import] Invalid rows skipped:', invalidRows);
+                    toast.error(
+                        `${invalidRows.length} row${invalidRows.length > 1 ? 's' : ''} skipped — invalid phone numbers. Check browser console for details.`,
+                        { duration: 7000 }
+                    );
+                }
+
+                if (validRows.length === 0 && invalidRows.length === 0) {
+                    toast.error('No data found in the file.');
+                }
             } catch (err) {
                 toast.error('Import failed: ' + (err.response?.data?.message || err.message));
             }
@@ -238,6 +326,15 @@ const Customers = () => {
                     <button className="customers-btn-outline" onClick={() => window.open('/api/files/sample/customer', '_blank')}><FileText size={14} /> Sample</button>
                     <button className="customers-btn-outline" onClick={() => document.getElementById('file-upload-c').click()}><Upload size={14} /> Import</button>
                     <button className="customers-btn-outline customers-btn-warning" onClick={handleRecalibrate}><RefreshCcw size={14} /> Sync Credits</button>
+                    <button className="customers-btn-outline" onClick={handleNormalizeContacts} style={{ background: '#25D366', color: 'white', border: 'none' }}><PencilSparkles size={14} /> Fix</button>
+                    <button 
+                        className="customers-btn-outline" 
+                        onClick={() => navigate('/invalid-numbers')} 
+                        title="WhatsApp Audit (Invalid Numbers)" 
+                        style={{ padding: '0.45rem', minWidth: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <AlertTriangle size={14} style={{ color: '#ef4444' }} />
+                    </button>
                     <input type="file" id="file-upload-c" accept=".csv, .xlsx" style={{ display: 'none' }} onChange={handleImport} />
                     <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => { setEditingCustomer(null); setFormData({ name: '', phone: '', loyalty_points: '' }); setShowForm(true); }}>
                         <Plus size={16} /> New Customer
@@ -269,7 +366,8 @@ const Customers = () => {
                                     <th className="checkbox-cell">
                                         <input type="checkbox" className="custom-checkbox" checked={selectedIds.size > 0 && selectedIds.size === filteredCustomers.length} onChange={toggleSelectAll} />
                                     </th>
-                                    <th>Customer Identity</th>
+                                    <th>Name</th>
+                                    <th>Phone Number</th>
                                     <th>Loyalty Points</th>
                                     <th>Recent Credit Notes</th>
                                     <th>Pending Debt</th>
@@ -284,6 +382,8 @@ const Customers = () => {
                                         </td>
                                         <td>
                                             <div className="customers-name">{c.name}</div>
+                                        </td>
+                                        <td>
                                             <div className="customers-phone">{c.phone}</div>
                                         </td>
                                         <td className="customers-loyalty-highlight">{c.loyalty_points || 0} pts</td>
@@ -298,6 +398,9 @@ const Customers = () => {
                                         <td className="val-center">
                                             <div className="customers-action-group customers-action-center">
                                                 <button className="btn-icon" onClick={() => setViewingCustomer(c)} title="View"><Eye size={16} /></button>
+                                                {isWhatsHubInUse && (
+                                                    <button className="btn-icon" onClick={() => handleSyncWhatsHub(c.id)} title="Sync to WhatsHub"><Smartphone size={16} /></button>
+                                                )}
                                                 <button className="btn-icon" onClick={() => { setEditingCustomer(c); setFormData({ name: c.name, phone: c.phone, loyalty_points: c.loyalty_points || 0 }); setShowForm(true); }} title="Edit"><Edit size={16} /></button>
                                                 <button className="btn-icon icon-purple" onClick={() => handleIssueCard(c)} title="Loyalty"><CreditCard size={16} /></button>
                                                 <button className="btn-icon icon-danger" onClick={() => handleDeleteCustomer(c.id, c.name)} title="Delete"><Trash size={16} /></button>
@@ -306,7 +409,7 @@ const Customers = () => {
                                     </tr>
                                 ))}
                                 {filteredCustomers.length === 0 && (
-                                    <tr><td colSpan="6" className="val-center customers-empty-state">No customers found matching your search.</td></tr>
+                                    <tr><td colSpan="7" className="val-center customers-empty-state">No customers found matching your search.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -316,6 +419,9 @@ const Customers = () => {
 
             <div className={`bulk-actions-bar ${selectedIds.size > 0 ? 'visible' : ''}`}>
                 <span className="selected-count">{selectedIds.size} Selected</span>
+                {isWhatsHubInUse && (
+                    <button className="bulk-btn-sync" onClick={handleBulkSyncWhatsHub} style={{ background: '#25D366', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Smartphone size={16} /> Sync WhatsHub</button>
+                )}
                 <button className="bulk-btn-delete" onClick={handleBulkDelete}><Trash size={16} /> Delete Selected</button>
                 <button className="bulk-btn-cancel" onClick={() => setSelectedIds(new Set())}>Cancel</button>
             </div>
@@ -328,8 +434,8 @@ const Customers = () => {
                             <button className="btn-icon" onClick={() => setShowForm(false)}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSubmit}>
-                            <div className="customers-form-group"><label className="customers-label">Full Name</label><input className="input" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} autoFocus /></div>
-                            <div className="customers-form-group"><label className="customers-label">WhatsApp / Phone</label><input className="input" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+91..." /></div>
+                            <div className="customers-form-group"><label className="customers-label">Full Name *</label><input className="input" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} autoFocus /></div>
+                            <div className="customers-form-group"><label className="customers-label">WhatsApp / Phone *</label><input className="input" required value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="10-digit or +91..." /></div>
                             {editingCustomer && (
                                 <div className="customers-form-group"><label className="customers-label">Loyalty Points</label><input className="input" type="number" min="0" value={formData.loyalty_points} onChange={e => setFormData({ ...formData, loyalty_points: e.target.value })} placeholder="0" /></div>
                             )}
@@ -347,16 +453,18 @@ const Customers = () => {
             <ConfirmModal
                 isOpen={confirmAction.isOpen}
                 onClose={() => setConfirmAction({ ...confirmAction, isOpen: false })}
-                onConfirm={confirmAction.type === 'sync' ? async () => {
-                    try {
-                        await axios.post('/api/customers/recalibrate-credit');
-                        toast.success('Credit balances synchronized');
-                        fetchCustomers();
-                    } catch (err) { toast.error('Sync failed'); }
-                } : confirmDeleteAction}
+                onConfirm={
+                    confirmAction.type === 'sync' ? async () => {
+                        try {
+                            await axios.post('/api/customers/recalibrate-credit');
+                            toast.success('Credit balances synchronized');
+                            fetchCustomers();
+                        } catch (err) { toast.error('Sync failed'); }
+                    } : confirmAction.type === 'normalize' ? confirmNormalizeContacts : confirmDeleteAction
+                }
                 title={confirmAction.title}
                 message={confirmAction.message}
-                type={confirmAction.type === 'sync' ? 'primary' : 'danger'}
+                type={(confirmAction.type === 'sync' || confirmAction.type === 'normalize') ? 'primary' : 'danger'}
             />
         </div>
     );

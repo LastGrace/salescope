@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, BrowserRouter, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,34 +6,38 @@ import Layout from './components/Layout';
 import ConfirmModal from './components/ConfirmModal';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Lazy-loaded pages
+// Eagerly loaded (critical path — needed before auth check)
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Statistics from './pages/Statistics';
-import Inventory from './pages/Inventory';
-import POS from './pages/POS';
-import POSNew from './pages/POSNew';
-import SalesRecords from './pages/SalesRecords';
-import Customers from './pages/Customers';
-import PurchaseOrders from './pages/PurchaseOrders';
-import BarcodeGenerator from './pages/BarcodeGenerator';
-import QuickAddProduct from './pages/QuickAddProduct';
-import CreditBills from './pages/CreditBills';
-import LoyaltySettings from './pages/LoyaltySettings';
-import ReturnExchange from './pages/ReturnExchange';
-import CreditNotes from './pages/CreditNotes';
-import CategoryManager from './pages/CategoryManager';
-import CouponManager from './pages/CouponManager';
-import ExpenseManager from './pages/ExpenseManager';
-import WhatsAppBulk from './pages/WhatsAppBulk';
-import DatabaseManager from './pages/DatabaseManager';
-import EmployeeList from './pages/Employees/EmployeeList';
-import EmployeeForm from './pages/Employees/EmployeeForm';
-import EmployeePermissions from './pages/Employees/EmployeePermissions';
-import FileManager from './pages/FileManager';
-import StoreSettings from './pages/StoreSettings';
-import ConnectDrive from './pages/ConnectDrive';
-import Activation from './pages/Activation';
+
+// Lazy-loaded pages — each becomes its own JS chunk, loaded on first visit only
+const Dashboard          = lazy(() => import('./pages/Dashboard.jsx'));
+const Statistics         = lazy(() => import('./pages/Statistics.jsx'));
+const Inventory          = lazy(() => import('./pages/Inventory.jsx'));
+const POS                = lazy(() => import('./pages/POS.jsx'));
+const POSNew             = lazy(() => import('./pages/POSNew.jsx'));
+const SalesRecords       = lazy(() => import('./pages/SalesRecords.jsx'));
+const Customers          = lazy(() => import('./pages/Customers.jsx'));
+const PurchaseOrders     = lazy(() => import('./pages/PurchaseOrders.jsx'));
+const BarcodeGenerator   = lazy(() => import('./pages/BarcodeGenerator.jsx'));
+const QuickAddProduct    = lazy(() => import('./pages/QuickAddProduct.jsx'));
+const CreditBills        = lazy(() => import('./pages/CreditBills.jsx'));
+const LoyaltySettings    = lazy(() => import('./pages/LoyaltySettings.jsx'));
+const ReturnExchange     = lazy(() => import('./pages/ReturnExchange.jsx'));
+const CreditNotes        = lazy(() => import('./pages/CreditNotes.jsx'));
+const CategoryManager    = lazy(() => import('./pages/CategoryManager.jsx'));
+const CouponManager      = lazy(() => import('./pages/CouponManager.jsx'));
+const ExpenseManager     = lazy(() => import('./pages/ExpenseManager.jsx'));
+const WhatsAppBulk       = lazy(() => import('./pages/WhatsAppBulk.jsx'));
+const WhatsAppActivity   = lazy(() => import('./pages/WhatsAppActivity.jsx'));
+const DatabaseManager    = lazy(() => import('./pages/DatabaseManager.jsx'));
+const EmployeeList       = lazy(() => import('./pages/Employees/EmployeeList.jsx'));
+const EmployeeForm       = lazy(() => import('./pages/Employees/EmployeeForm.jsx'));
+const EmployeePermissions = lazy(() => import('./pages/Employees/EmployeePermissions.jsx'));
+const FileManager        = lazy(() => import('./pages/FileManager.jsx'));
+const StoreSettings      = lazy(() => import('./pages/StoreSettings.jsx'));
+const ConnectDrive       = lazy(() => import('./pages/ConnectDrive.jsx'));
+const Activation         = lazy(() => import('./pages/Activation.jsx'));
+const InvalidNumbers     = lazy(() => import('./pages/InvalidNumbers.jsx'));
 
 const PrivateRoute = ({ children, roles }) => {
   const { user } = useAuth();
@@ -247,12 +251,12 @@ const App = () => {
     }
   }, [licenseStatus.status, location.pathname, navigate]);
 
-  // Poll license status every 10 seconds while pending (App-level, in case user is not on /activation)
+  // Poll license status every 5 seconds while pending (App-level, in case user is not on /activation)
   React.useEffect(() => {
     if (licenseStatus.status !== 'pending') return;
     const interval = setInterval(() => {
       checkLicense();
-    }, 10000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [licenseStatus.status, checkLicense]);
 
@@ -269,62 +273,74 @@ const App = () => {
   const isInactive = licenseStatus.status !== 'licensed';
   const showOverlay = isInactive && licenseStatus.status !== 'pending' && location.pathname !== '/login' && location.pathname !== '/activation';
 
+  if (showOverlay) {
+    return (
+      <div style={{
+        display: 'flex',
+        minHeight: '100vh',
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0f172a',
+        color: '#64748b',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        margin: 0,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 99999,
+        userSelect: 'none'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontWeight: 500, fontSize: '1.6rem', marginBottom: '0.5rem', color: '#94a3b8', letterSpacing: '-0.025em' }}>Not Active</h2>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: '#475569' }}>Contact Administrator for more info.</p>
+        </div>
+        
+        <button 
+          onClick={() => navigate('/activation')}
+          style={{
+            position: 'absolute',
+            bottom: '20px',
+            right: '20px',
+            background: 'transparent',
+            border: 'none',
+            color: '#1e293b', // Blended dark grey/blue on the dark background
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            opacity: 0.5,
+            transition: 'opacity 0.2s, color 0.2s',
+            padding: '10px',
+            outline: 'none'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.opacity = 1;
+            e.target.style.color = '#475569';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.opacity = 0.5;
+            e.target.style.color = '#1e293b';
+          }}
+          title="System Info"
+        >
+          !
+        </button>
+      </div>
+    );
+  }
+
+  // Minimal page-transition fallback — just keeps current content visible while next chunk loads
+  const PageFallback = () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-muted)', gap: '0.75rem', fontSize: '0.9rem' }}>
+      <span style={{ width: 20, height: 20, border: '2px solid var(--border)', borderTop: '2px solid var(--primary)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
   return (
     <>
-      {showOverlay && (
-        <div style={{
-          display: 'flex',
-          minHeight: '100vh',
-          width: '100%',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#0f172a',
-          color: '#64748b',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          margin: 0,
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          zIndex: 99999,
-          userSelect: 'none'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <h2 style={{ fontWeight: 500, fontSize: '1.6rem', marginBottom: '0.5rem', color: '#94a3b8', letterSpacing: '-0.025em' }}>Not Active</h2>
-            <p style={{ margin: 0, fontSize: '0.95rem', color: '#475569' }}>Contact Administrator for more info.</p>
-          </div>
-          
-          <button 
-            onClick={() => navigate('/activation')}
-            style={{
-              position: 'absolute',
-              bottom: '20px',
-              right: '20px',
-              background: 'transparent',
-              border: 'none',
-              color: '#1e293b', // Blended dark grey/blue on the dark background
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              opacity: 0.5,
-              transition: 'opacity 0.2s, color 0.2s',
-              padding: '10px',
-              outline: 'none'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.opacity = 1;
-              e.target.style.color = '#475569';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.opacity = 0.5;
-              e.target.style.color = '#1e293b';
-            }}
-            title="System Info"
-          >
-            !
-          </button>
-        </div>
-      )}
-      <Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -341,35 +357,26 @@ const App = () => {
             <Route path="credit-bills" element={<CreditBills />} />
             <Route path="credit-notes" element={<CreditNotes />} />
             <Route path="barcodes" element={<BarcodeGenerator />} />
-
             <Route path="quick-add" element={<QuickAddProduct />} />
             <Route path="loyalty-settings" element={<LoyaltySettings />} />
             <Route path="categories" element={<CategoryManager />} />
             <Route path="coupons" element={<CouponManager />} />
             <Route path="expenses" element={<ExpenseManager />} />
             <Route path="whatsapp-bulk" element={<WhatsAppBulk />} />
+            <Route path="whatsapp-activity" element={<WhatsAppActivity />} />
             <Route path="database" element={<DatabaseManager />} />
             <Route path="connect-drive" element={<ConnectDrive />} />
             <Route path="settings/store" element={<StoreSettings />} />
-
             {/* Employee Management */}
-            <Route path="employees" element={
-              <ProtectedRoute requiredPermission="employee.view"><EmployeeList /></ProtectedRoute>
-            } />
-            <Route path="employees/new" element={
-              <ProtectedRoute requiredPermission="employee.create"><EmployeeForm /></ProtectedRoute>
-            } />
-            <Route path="employees/edit/:id" element={
-              <ProtectedRoute requiredPermission="employee.update"><EmployeeForm /></ProtectedRoute>
-            } />
-            <Route path="employees/:id/permissions" element={
-              <ProtectedRoute requiredPermission="permission.assign"><EmployeePermissions /></ProtectedRoute>
-            } />
-            <Route path="files" element={
-              <ProtectedRoute requiredPermission="files.view"><FileManager /></ProtectedRoute>
-            } />
+            <Route path="employees" element={<ProtectedRoute requiredPermission="employee.view"><EmployeeList /></ProtectedRoute>} />
+            <Route path="employees/new" element={<ProtectedRoute requiredPermission="employee.create"><EmployeeForm /></ProtectedRoute>} />
+            <Route path="employees/edit/:id" element={<ProtectedRoute requiredPermission="employee.update"><EmployeeForm /></ProtectedRoute>} />
+            <Route path="employees/:id/permissions" element={<ProtectedRoute requiredPermission="permission.assign"><EmployeePermissions /></ProtectedRoute>} />
+            <Route path="files" element={<ProtectedRoute requiredPermission="files.view"><FileManager /></ProtectedRoute>} />
+            <Route path="invalid-numbers" element={<InvalidNumbers />} />
           </Route>
         </Routes>
+      </Suspense>
 
       <ConfirmModal
         isOpen={exitModal && !isBackingUp}
