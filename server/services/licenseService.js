@@ -134,9 +134,6 @@ const META_ENCRYPTION_KEY = 'salescope-secure-token-998'; // Key for hidden meta
 /**
  * Executes a shell command on Windows and cleans the output
  */
-/**
- * Executes a shell command on Windows and cleans the output
- */
 function execWinCmd(cmd) {
     try {
         if (process.platform !== 'win32') return '';
@@ -243,6 +240,9 @@ const prewarmHardwareProfileAsync = async () => {
         return { motherboard: 'UNKNOWN_BOARD', cpu: 'UNKNOWN_CPU', disk: 'UNKNOWN_DISK', mac: 'UNKNOWN_MAC' };
     }
 };
+
+// Immediately prewarm hardware profile asynchronously on module load
+prewarmHardwareProfileAsync().catch(() => {});
 
 /**
  * 1. Collect Hardware Fingerprint Profile

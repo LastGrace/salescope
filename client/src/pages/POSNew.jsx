@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Trash, User, CreditCard, Banknote, Smartphone, Printer, CheckCircle, Edit, Eye, Plus, ShoppingCart, RotateCcw, Share2, PauseCircle, LayoutList, Play, X, Gift, PlusCircle, Barcode, Phone, PanelRightClose, PanelRightOpen, ArrowRight, FileText, ListOrdered } from 'lucide-react';
+import { Search, Trash, User, CreditCard, Banknote, Smartphone, Printer, CheckCircle, Edit, Eye, Plus, ShoppingCart, RotateCcw, Share2, PauseCircle, LayoutList, Play, X, Gift, PlusCircle, Barcode, Phone, PanelRightClose, PanelRightOpen, ArrowRight, FileText, ListOrdered, Volume2, VolumeX } from 'lucide-react';
 
 
 import '../styles/POSNew.css';
@@ -31,6 +31,48 @@ const POSNew = () => {
     const [productSearchInput, setProductSearchInput] = useState('');
     const [customerNameInput, setCustomerNameInput] = useState('');
     const [customerPhoneInput, setCustomerPhoneInput] = useState('');
+
+    // Sound FX State (Scanner Feedback)
+    const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('pos_scanner_sound') !== 'false');
+
+    // Web Audio API Sound Synthesizer (No external asset files needed)
+    const playScannerBeep = (type = 'success') => {
+        if (!soundEnabled) return;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+
+            if (type === 'success') {
+                // High crisp beep (1200Hz, 70ms)
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.07);
+            } else if (type === 'error') {
+                // Low double error beep (320Hz, 140ms)
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(320, ctx.currentTime);
+                osc.frequency.setValueAtTime(240, ctx.currentTime + 0.07);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.14);
+            }
+        } catch (e) {
+            // Ignore audio errors if browser blocks autoplay context
+        }
+    };
 
     // Layout States
     const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
@@ -531,6 +573,7 @@ const POSNew = () => {
     // Wrapper for addToCart
     const addToCart = React.useCallback((product) => {
         addToCartContext(product);
+        playScannerBeep('success');
         const index = cart.findIndex(item => item.id == product.id);
         if (index !== -1) {
             setActiveCartIndex(index);
@@ -544,7 +587,7 @@ const POSNew = () => {
                 barcodeInputRef.current.focus();
             }
         }, 50);
-    }, [addToCartContext, cart]);
+    }, [addToCartContext, cart, soundEnabled]);
 
     // --- Search & Input Handlers ---
 
@@ -557,6 +600,7 @@ const POSNew = () => {
             if (product) {
                 addToCart(product);
             } else {
+                playScannerBeep('error');
                 toast.error('Product not found by barcode');
             }
         }
@@ -1005,6 +1049,18 @@ const POSNew = () => {
                         </div>
 
                         <div className="posn-action-group compact">
+                            <button
+                                className={`posn-btn secondary sm ${soundEnabled ? 'active' : ''}`}
+                                onClick={() => setSoundEnabled(prev => {
+                                    const next = !prev;
+                                    localStorage.setItem('pos_scanner_sound', next ? 'true' : 'false');
+                                    if (next) playScannerBeep('success');
+                                    return next;
+                                })}
+                                title={soundEnabled ? "Scanner Beep Enabled (Click to Mute)" : "Scanner Beep Muted (Click to Unmute)"}
+                            >
+                                {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                            </button>
                             <button className="posn-btn secondary sm" onClick={addDirectItem} title="Direct Item">
                                 <PlusCircle size={16} /> {!isRightSidebarOpen && <span className="hide-mobile">Direct</span>}
                             </button>

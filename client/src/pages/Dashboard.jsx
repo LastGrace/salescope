@@ -1,13 +1,13 @@
-import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-    CreditCard, LayoutDashboard, Package, Wallet, Ban, Ticket, Users,
-    MessageSquare, Star, RotateCcw, Folder, FileText,
+    CreditCard, Package, Wallet, Ban, Ticket, Users,
+    Star, RotateCcw, Folder, FileText,
     Database, Settings, ShoppingCart, TrendingUp, ChartNoAxesCombined, Plus, Smartphone, Truck, Rocket,
-    Info, Globe, Mail, X, ExternalLink, Store, Shield, History
+    Store, History, Info, Globe, Mail, X, ExternalLink, Shield
 } from 'lucide-react';
 
 import '../styles/Dashboard.css';
@@ -66,20 +66,16 @@ const Dashboard = () => {
 
     const fetchStatusData = useCallback(async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
-        try {
-            const headers = { Authorization: `Bearer ${token}` };
-            const [driveRes, licenseRes] = await Promise.all([
-                axios.get('/api/backup/drive/status', { headers }),
-                axios.get('/api/license/status', { headers })
-            ]);
-            setDriveStatus(driveRes.data?.connected || false);
-            setLicenseStatus(licenseRes.data || null);
-        } catch (err) {
-            // Silently fail - don't log on polling errors to avoid console spam
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
+        const headers = { Authorization: `Bearer ${token}` };
+        
+        axios.get('/api/backup/drive/status', { headers })
+            .then(res => setDriveStatus(res.data?.connected || false))
+            .catch(() => {})
+            .finally(() => { setRefreshing(false); setLoading(false); });
+
+        axios.get('/api/license/status', { headers })
+            .then(res => setLicenseStatus(res.data || null))
+            .catch(() => {});
     }, [token]);
 
     useEffect(() => {
@@ -90,6 +86,11 @@ const Dashboard = () => {
         axios.get('/api/settings/store', { headers: { Authorization: `Bearer ${token}` } })
             .then(res => setStoreSettings(res.data))
             .catch(() => { });
+
+        // Pre-fetch key page chunks in background for instantaneous 0ms page transitions
+        import('./POSNew.jsx').catch(() => {});
+        import('./Inventory.jsx').catch(() => {});
+        import('./Customers.jsx').catch(() => {});
 
         // Real-time polling every 8 seconds
         const pollInterval = setInterval(() => fetchStatusData(), 8000);

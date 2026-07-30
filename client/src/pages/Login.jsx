@@ -11,6 +11,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
     const [storeSettings, setStoreSettings] = useState(null);
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -26,16 +27,22 @@ const Login = () => {
             }
         };
         fetchSettings();
+
+        // Pre-fetch Dashboard chunk in background so navigation after login is instant
+        import('./Dashboard.jsx').catch(() => {});
     }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         setError('');
+        setSubmitting(true);
         const success = await login(username, password);
         if (success) {
             navigate('/dashboard');
         } else {
             setError('Invalid credentials');
+            setSubmitting(false);
         }
     };
 
@@ -111,8 +118,15 @@ const Login = () => {
                             </button>
                         </div>
                     </div>
-                    <button type="submit" className="btn btn-primary btn-full-width">
-                        Sign In
+                    <button type="submit" className="btn btn-primary btn-full-width" disabled={submitting}>
+                        {submitting ? (
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                <span className="spinner-mini" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }}></span>
+                                Signing in...
+                            </span>
+                        ) : (
+                            'Sign In'
+                        )}
                     </button>
                 </form>
             </div>

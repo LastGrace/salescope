@@ -26,7 +26,7 @@ async function obfuscate() {
 
     // 2. Build Client (Obfuscation is handled by Vite plugin there)
     console.log('Building client...');
-    execSync('cmd /c npm run build', { cwd: clientDir, stdio: 'inherit' });
+    execSync('npm run build', { cwd: clientDir, stdio: 'inherit', shell: true });
 
     // 3. Prepare dist-obfuscated for server
     console.log('Preparing obfuscation directory...');
@@ -42,9 +42,10 @@ async function obfuscate() {
 
     // 4. Install production dependencies for server
     console.log('Installing production dependencies for server...');
-    execSync('cmd /c npm install --omit=dev', { 
+    execSync('npm install --omit=dev', { 
         cwd: distServerDir, 
-        stdio: 'inherit'
+        stdio: 'inherit',
+        shell: true
     });
 
     const obfuscateOptions = {

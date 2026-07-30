@@ -149,20 +149,30 @@ const getStatus = async () => {
         return cachedDriveStatus;
     }
 
-    try {
-        if (!driveClient) loadTokens();
-        loadGoogleCore();
-        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-        const { data } = await oauth2.userinfo.get();
-        
-        cachedDriveStatus = { connected: true, configured: true, email: data.email };
+    // Fast path: if token file exists, immediately return connected and update email in background
+    const fastStatus = { connected: true, configured: true, email: cachedDriveStatus?.email || null };
+
+    // Fire background verification
+    (async () => {
+        try {
+            if (!driveClient) loadTokens();
+            loadGoogleCore();
+            const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+            const { data } = await oauth2.userinfo.get();
+            cachedDriveStatus = { connected: true, configured: true, email: data.email };
+            lastDriveStatusCheck = Date.now();
+        } catch (error) {
+            cachedDriveStatus = { connected: false, configured: true, reason: 'Session expired' };
+            lastDriveStatusCheck = Date.now();
+        }
+    })();
+
+    if (!cachedDriveStatus) {
+        cachedDriveStatus = fastStatus;
         lastDriveStatusCheck = now;
-        return cachedDriveStatus;
-    } catch (error) {
-        cachedDriveStatus = { connected: false, configured: true, reason: 'Session expired' };
-        lastDriveStatusCheck = now;
-        return cachedDriveStatus;
     }
+
+    return cachedDriveStatus;
 };
 
 /**

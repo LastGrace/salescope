@@ -11,9 +11,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_generated_secret_key_8493
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     console.log(`[LOGIN ATTEMPT] Username: ${username}`);
-
-    // Dev user backdoor removed for security
-
     try {
         const [users] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
 
@@ -68,10 +65,10 @@ router.post('/login', async (req, res) => {
         // Update last login
         await db.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]);
 
-        // Trigger background license status sync asynchronously upon login
+        // Trigger background license status sync non-blockingly upon login
         setImmediate(() => {
             const { getLicenseStatus } = require('../services/licenseService');
-            getLicenseStatus(true).catch(err => console.error('[License Login Sync Failed]:', err.message));
+            getLicenseStatus(false).catch(err => console.error('[License Login Sync Failed]:', err.message));
         });
 
         res.json({

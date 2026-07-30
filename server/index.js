@@ -41,10 +41,6 @@ _bp('require(db) — MySQL pool created');
 // with the rest of the synchronous boot work, so SELECT 1 is much faster.
 db.getConnection().then(conn => { conn.release(); _bp('pool pre-warm connection released'); }).catch(() => {});
 
-// Removed global static require for heavy module:
-// const { initWhatsApp, destroyClient, getStatus, getQr } = require('./services/whatsappService');
-// Also removed backupService synchronous require to speed up obfuscated boot time
-
 // ── Global Error Handlers (crash logging) ─────────────────────────
 function logServerCrash(label, err) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

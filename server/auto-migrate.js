@@ -49,6 +49,22 @@ async function checkAndMigrate() {
             }
         };
 
+        // Helper to check and add index
+        const ensureIndex = async (table, indexName, definition) => {
+            try {
+                const [indexes] = await connection.query(`SHOW INDEX FROM ${table} WHERE Key_name = '${indexName}'`);
+                if (indexes.length === 0) {
+                    console.log(`Migrating: Adding index ${indexName} to ${table}...`);
+                    await connection.query(`ALTER TABLE ${table} ADD INDEX ${indexName} ${definition}`);
+                    console.log(`Migration done: Index ${indexName} created.`);
+                } else {
+                    console.log(`Schema check: Index ${indexName} exists.`);
+                }
+            } catch (e) {
+                console.error(`Failed to check/add index ${indexName}:`, e.message);
+            }
+        };
+
         // 1. Check for product_add_sound_url
         await ensureColumn('store_settings', 'product_add_sound_url', 'VARCHAR(255) AFTER login_logo_height');
 
@@ -142,6 +158,13 @@ async function checkAndMigrate() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB;
         `);
+
+        // 5. Add Composite Analytics & Performance Indexes
+        await ensureIndex('sales', 'idx_sales_created_total', '(created_at, total_amount)');
+        await ensureIndex('sales', 'idx_sales_created_user', '(created_at, user_id)');
+        await ensureIndex('sale_items', 'idx_sale_items_composite', '(sale_id, product_id, price_at_sale, quantity)');
+        await ensureIndex('products', 'idx_products_barcode_status', '(barcode, status)');
+        await ensureIndex('expenses', 'idx_expenses_date_amount', '(date, amount)');
 
         // ── Write stamp file so next boot skips all of this ──
         try {
