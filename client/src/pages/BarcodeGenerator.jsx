@@ -42,8 +42,6 @@ const BarcodeGenerator = () => {
     const loadProducts = async () => {
         try {
             const res = await axios.get('/api/products?limit=9999&lite=true');
-            // Handle both paginated { products: [...] } and flat [...] responses
-            // + Ensure we always set an array to avoid "filter is not a function" crash
             const data = res.data.products ? res.data.products : (Array.isArray(res.data) ? res.data : []);
             setProducts(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -91,17 +89,17 @@ const BarcodeGenerator = () => {
                     margin: 0 !important;
                     padding: 0 !important;
                     width: ${PAPER_WIDTH_MM}mm !important;
-                    height: ${labelHeight}mm !important;
+                    height: auto !important;
                     -webkit-print-color-adjust: exact;
                 }
                 .print-row {
                     display: flex !important;
                     flex-direction: row !important;
-                    justify-content: space-between !important;
                     align-items: center !important;
+                    justify-content: space-between !important;
                     width: ${PAPER_WIDTH_MM}mm !important;
                     height: ${labelHeight}mm !important;
-                    padding: 0 2.5mm !important;
+                    padding: 0 1.5mm !important;
                     box-sizing: border-box !important;
                     page-break-inside: avoid !important;
                     break-inside: avoid !important;
@@ -116,10 +114,6 @@ const BarcodeGenerator = () => {
         `
     });
 
-    const PIXELS_PER_MM = 3.78;
-    const DESIGN_WIDTH_PX = 300;
-    const DESIGN_HEIGHT_PX = 150;
-
     const LabelContent = ({ item }) => (
         <div style={{
             width: '100%',
@@ -128,35 +122,34 @@ const BarcodeGenerator = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '3px 8px',
+            padding: '1.5mm 1mm',
             background: 'white',
             color: 'black',
             fontFamily: 'Arial, sans-serif',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            textAlign: 'center'
         }}>
-            <div style={{ fontWeight: '900', fontSize: '160%', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap', maxWidth: '95%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontWeight: '900', fontSize: '11pt', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1 }}>
                 TRENDY FLEA
             </div>
-            <div style={{ fontSize: '135%', fontWeight: '700', textAlign: 'center', marginBottom: '3px', lineHeight: 1, letterSpacing: '1.5px', marginTop: '1px', maxWidth: '95%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: '9.5pt', fontWeight: '700', textAlign: 'center', lineHeight: 1, letterSpacing: '0.5px', marginTop: '1px', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {item.name.toUpperCase()}
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden', height: '22%' }}>
-                <div style={{ width: '100%', height: '22px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2px' }}>
-                    <Barcode
-                        value={item.barcode || '0000'}
-                        width={2.2}
-                        height={50}
-                        fontSize={0}
-                        margin={0}
-                        displayValue={false}
-                        background="transparent"
-                    />
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '24px', overflow: 'hidden' }}>
+                <Barcode
+                    value={item.barcode || '0000'}
+                    width={1.6}
+                    height={24}
+                    fontSize={0}
+                    margin={0}
+                    displayValue={false}
+                    background="transparent"
+                />
             </div>
-            <div style={{ fontWeight: 'bold', marginTop: '2px', fontSize: '105%', letterSpacing: '1.5px', lineHeight: 1, whiteSpace: 'nowrap', marginBottom: '-5px' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '8.5pt', letterSpacing: '1px', lineHeight: 1, whiteSpace: 'nowrap', marginTop: '-1px' }}>
                 {item.barcode || '0000'}
             </div>
-            <div style={{ fontWeight: '900', fontSize: '150%', letterSpacing: '0.04em', marginTop: '4px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: '900', fontSize: '10.5pt', letterSpacing: '0.04em', lineHeight: 1, whiteSpace: 'nowrap' }}>
                 MRP ₹ : {Number(item.price).toFixed(2)}
             </div>
         </div>
@@ -304,53 +297,46 @@ const BarcodeGenerator = () => {
                         <h3 style={{ position: 'absolute', top: '1.25rem', left: '1.5rem', margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>Real-time Preview</h3>
                         {queue.length > 0 ? (
                             <div className="barcode-preview-label" style={{
-                                width: `${labelWidth * 4}px`,
-                                height: `${labelHeight * 4}px`,
+                                width: `${labelWidth * 3}px`,
+                                height: `${labelHeight * 3}px`,
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                overflow: 'hidden'
                             }}>
-                                <div style={{
-                                    width: `${DESIGN_WIDTH_PX}px`,
-                                    height: `${DESIGN_HEIGHT_PX}px`,
-                                    transform: `scale(${(labelWidth * 4) / DESIGN_WIDTH_PX}, ${(labelHeight * 4) / DESIGN_HEIGHT_PX})`,
-                                    transformOrigin: 'top left',
-                                }}>
-                                    <LabelContent item={queue[0]} />
-                                </div>
+                                <LabelContent item={queue[0]} />
                             </div>
                         ) : (
                             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Add labels to see preview</div>
                         )}
-                        <span className="barcode-preview-hint">4:1 Scale Visualization</span>
+                        <span className="barcode-preview-hint">3:1 Scale Visualization</span>
                     </div>
                 </div>
             </main>
 
-            {/* Hidden Print Container */}
-            <div style={{ position: 'fixed', top: '100vh', left: 0, opacity: 0, pointerEvents: 'none' }}>
+            {/* Hidden Print Container - Positioned Off-Screen with Unconstrained Height */}
+            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', opacity: 0, pointerEvents: 'none' }}>
                 <div ref={componentRef} style={{ width: `${PAPER_WIDTH_MM}mm` }}>
                     {rows.map((row, rowIdx) => (
                         <div key={rowIdx} className="print-row" style={{
                             display: 'flex',
                             flexDirection: 'row',
+                            alignItems: 'center',
                             justifyContent: 'space-between',
-                            width: '100%',
-                            height: `${labelHeight}mm`
+                            width: `${PAPER_WIDTH_MM}mm`,
+                            height: `${labelHeight}mm`,
+                            padding: '0 1.5mm',
+                            boxSizing: 'border-box'
                         }}>
                             {row.map((item, colIdx) => (
                                 <div key={colIdx} style={{
                                     width: `${labelWidth}mm`,
                                     height: `${labelHeight}mm`,
-                                    position: 'relative',
                                     background: 'white',
-                                    overflow: 'hidden'
+                                    overflow: 'hidden',
+                                    boxSizing: 'border-box'
                                 }}>
-                                    <div style={{
-                                        width: `${DESIGN_WIDTH_PX}px`,
-                                        height: `${DESIGN_HEIGHT_PX}px`,
-                                        transform: `scale(${(labelWidth * PIXELS_PER_MM) / DESIGN_WIDTH_PX}, ${(labelHeight * PIXELS_PER_MM) / DESIGN_HEIGHT_PX})`,
-                                        transformOrigin: 'top left',
-                                    }}>
-                                        <LabelContent item={item} />
-                                    </div>
+                                    <LabelContent item={item} />
                                 </div>
                             ))}
                             {row.length === 1 && <div style={{ width: `${labelWidth}mm` }} />}
