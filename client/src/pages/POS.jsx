@@ -14,6 +14,7 @@ import { TableVirtuoso } from 'react-virtuoso';
 import { useDebounce } from 'use-debounce';
 
 const POS = () => {
+    const [products, setProducts] = useState([]);
     const [activeCartIndex, setActiveCartIndex] = useState(-1);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
 
