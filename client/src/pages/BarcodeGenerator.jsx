@@ -13,9 +13,19 @@ const BarcodeGenerator = () => {
     const [queue, setQueue] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
 
-    // Label Settings
-    const [labelWidth, setLabelWidth] = useState(38); // mm
-    const [labelHeight, setLabelHeight] = useState(25); // mm
+    // Label & Alignment Settings (stored in localStorage)
+    const [labelWidth, setLabelWidth] = useState(() => Number(localStorage.getItem('barcode_label_width')) || 38); // mm
+    const [labelHeight, setLabelHeight] = useState(() => Number(localStorage.getItem('barcode_label_height')) || 25); // mm
+    const [leftMargin, setLeftMargin] = useState(() => Number(localStorage.getItem('barcode_left_margin')) || 2); // mm
+    const [columnGap, setColumnGap] = useState(() => Number(localStorage.getItem('barcode_column_gap')) || 3); // mm
+
+    // Save preferences automatically
+    useEffect(() => {
+        localStorage.setItem('barcode_label_width', labelWidth);
+        localStorage.setItem('barcode_label_height', labelHeight);
+        localStorage.setItem('barcode_left_margin', leftMargin);
+        localStorage.setItem('barcode_column_gap', columnGap);
+    }, [labelWidth, labelHeight, leftMargin, columnGap]);
 
     // Paper Settings
     const PAPER_WIDTH_MM = 83; // Roll width
@@ -271,12 +281,20 @@ const BarcodeGenerator = () => {
                                 <label>Height (mm)</label>
                                 <input type="number" step="0.1" className="input" value={labelHeight} onChange={e => setLabelHeight(Number(e.target.value))} />
                             </div>
+                            <div className="barcode-setting-item">
+                                <label>Left Margin (mm)</label>
+                                <input type="number" step="0.5" className="input" value={leftMargin} onChange={e => setLeftMargin(Number(e.target.value))} />
+                            </div>
+                            <div className="barcode-setting-item">
+                                <label>Column Gap (mm)</label>
+                                <input type="number" step="0.5" className="input" value={columnGap} onChange={e => setColumnGap(Number(e.target.value))} />
+                            </div>
                         </div>
 
                         <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(225, 29, 72, 0.03)', border: '1px solid rgba(225, 29, 72, 0.1)', borderRadius: '0.75rem', display: 'flex', gap: '0.75rem' }}>
                             <Info size={16} className="text-primary" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                                Standard roll width is locked to <strong>{PAPER_WIDTH_MM}mm</strong>. For the TSC TE244, these settings ensure a 2-column layout.
+                                Standard roll width: <strong>{PAPER_WIDTH_MM}mm</strong>. Adjust <strong>Left Margin</strong> and <strong>Column Gap</strong> to prevent right-side text cutoff.
                             </p>
                         </div>
                     </div>
@@ -312,9 +330,12 @@ const BarcodeGenerator = () => {
                         <div key={rowIdx} className="print-row" style={{
                             display: 'flex',
                             flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            width: '100%',
-                            height: `${labelHeight}mm`
+                            alignItems: 'center',
+                            paddingLeft: `${leftMargin}mm`,
+                            gap: `${columnGap}mm`,
+                            width: `${PAPER_WIDTH_MM}mm`,
+                            height: `${labelHeight}mm`,
+                            boxSizing: 'border-box'
                         }}>
                             {row.map((item, colIdx) => (
                                 <div key={colIdx} style={{
