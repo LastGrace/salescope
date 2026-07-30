@@ -83,15 +83,34 @@ const BarcodeGenerator = () => {
         contentRef: componentRef,
         pageStyle: `
             @page {
-                size: ${PAPER_WIDTH_MM}mm auto;
+                size: ${PAPER_WIDTH_MM}mm ${labelHeight}mm;
                 margin: 0mm;
             }
             @media print {
-                body {
+                html, body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: ${PAPER_WIDTH_MM}mm !important;
+                    height: ${labelHeight}mm !important;
                     -webkit-print-color-adjust: exact;
                 }
                 .print-row {
-                    page-break-inside: avoid;
+                    display: flex !important;
+                    flex-direction: row !important;
+                    justify-content: space-between !important;
+                    align-items: center !important;
+                    width: ${PAPER_WIDTH_MM}mm !important;
+                    height: ${labelHeight}mm !important;
+                    padding: 0 2.5mm !important;
+                    box-sizing: border-box !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                    page-break-after: always !important;
+                    break-after: page !important;
+                }
+                .print-row:last-child {
+                    page-break-after: auto !important;
+                    break-after: auto !important;
                 }
             }
         `
@@ -109,23 +128,23 @@ const BarcodeGenerator = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0.5%',
+            padding: '3px 8px',
             background: 'white',
             color: 'black',
             fontFamily: 'Arial, sans-serif',
             boxSizing: 'border-box'
         }}>
-            <div style={{ fontWeight: '900', fontSize: '187%', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: '900', fontSize: '160%', letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap', maxWidth: '95%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 TRENDY FLEA
             </div>
-            <div style={{ fontSize: '145%', fontWeight: '700', textAlign: 'center', marginBottom: '4px', lineHeight: 1, letterSpacing: '2px', marginTop: '2px', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: '135%', fontWeight: '700', textAlign: 'center', marginBottom: '3px', lineHeight: 1, letterSpacing: '1.5px', marginTop: '1px', maxWidth: '95%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {item.name.toUpperCase()}
             </div>
             <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', overflow: 'hidden', height: '22%' }}>
                 <div style={{ width: '100%', height: '22px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2px' }}>
                     <Barcode
                         value={item.barcode || '0000'}
-                        width={2.5}
+                        width={2.2}
                         height={50}
                         fontSize={0}
                         margin={0}
@@ -134,10 +153,10 @@ const BarcodeGenerator = () => {
                     />
                 </div>
             </div>
-            <div style={{ fontWeight: 'bold', marginTop: '3px', fontSize: '110%', letterSpacing: '2px', lineHeight: 1, whiteSpace: 'nowrap', marginBottom: '-6px' }}>
+            <div style={{ fontWeight: 'bold', marginTop: '2px', fontSize: '105%', letterSpacing: '1.5px', lineHeight: 1, whiteSpace: 'nowrap', marginBottom: '-5px' }}>
                 {item.barcode || '0000'}
             </div>
-            <div style={{ fontWeight: '900', fontSize: '155%', letterSpacing: '0.05em', marginTop: '5px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: '900', fontSize: '150%', letterSpacing: '0.04em', marginTop: '4px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
                 MRP ₹ : {Number(item.price).toFixed(2)}
             </div>
         </div>
