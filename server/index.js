@@ -344,45 +344,9 @@ function startBackgroundServices() {
     app.use('/api/files',           lazyRoute('files',           './routes/files'));
     app.use('/api/roles',           lazyRoute('roles',           './routes/roles'));
     app.use('/api/debug',           lazyRoute('debug',           './routes/debug'));
+    app.use('/api/backup',          lazyRoute('backup',          './routes/backup'));
     app.use('/api/whatsapp',        lazyRoute('whatsapp',        './routes/whatsapp'));
     _bp('all lazy routes registered');
-
-    // ── DEFERRED HEAVY ROUTES (loaded 15s after boot) ──
-    // Export (xlsx) and Backup (archiver/googleapis) are heavy to require.
-    // We use Router "slots" registered NOW (before the 404 fallback) so they
-    // keep their position in the middleware stack. The real route handlers are
-    // mounted into these routers after the timeout.
-    const exportRouter = express.Router();
-    const backupRouter = express.Router();
-
-    // Temporary 503 guard until the real handlers are loaded
-    let exportLoaded = false;
-    let backupLoaded = false;
-
-    exportRouter.use((req, res, next) => {
-        if (!exportLoaded) return res.status(503).json({ message: 'Export module is loading, please try again in a few seconds.' });
-        next();
-    });
-    backupRouter.use((req, res, next) => {
-        if (!backupLoaded) return res.status(503).json({ message: 'Backup module is loading, please try again in a few seconds.' });
-        next();
-    });
-
-    // Register the routers at the correct position (before the fallback handler)
-    app.use('/api/export', exportRouter);
-    app.use('/api/backup', backupRouter);
-
-    setTimeout(() => {
-        const s = Date.now();
-        exportRouter.use('/', require('./routes/export'));
-        exportLoaded = true;
-        console.log(`  [Deferred] export loaded in ${Date.now() - s}ms`);
-
-        const s2 = Date.now();
-        backupRouter.use('/', require('./routes/backup'));
-        backupLoaded = true;
-        console.log(`  [Deferred] backup loaded in ${Date.now() - s2}ms`);
-    }, 15000);
 
     // Fallback handlers must be attached last, so we attach them here after routes
     app.use((req, res, next) => {
