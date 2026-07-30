@@ -1697,3 +1697,222 @@
 .license-manage-btn:active {
     transform: translateY(0);
 }
+
+/* --- Dashboard Upgraded Header & Brand --- */
+.dashboard-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.dashboard-brand-logo {
+    height: 52px;
+    max-width: 180px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 4px 8px;
+    border: 1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.12);
+}
+
+.dark-mode .dashboard-brand-logo {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.dashboard-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.dashboard-clock-icon {
+    color: var(--color-primary);
+}
+
+.dashboard-time-badge {
+    background: rgba(var(--primary-rgb, 99, 102, 241), 0.1);
+    color: var(--color-primary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    font-family: monospace;
+    letter-spacing: 0.05em;
+    margin-left: 0.25rem;
+}
+
+/* --- Section Headers --- */
+.dashboard-section-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-section-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.dashboard-section-sub {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+
+.section-icon.text-indigo { color: var(--color-indigo); }
+.section-icon.text-orange { color: var(--color-warning); }
+.section-icon.text-cyan { color: var(--color-cyan); }
+
+/* --- POS Hero Launcher Cards --- */
+.hub-grid-hero {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.hub-card-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb, 99, 102, 241), 0.08), rgba(255, 255, 255, 0.7));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1.5px solid rgba(var(--primary-rgb, 99, 102, 241), 0.2);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+}
+
+.dark-mode .hub-card-hero {
+    background: linear-gradient(135deg, rgba(var(--primary-rgb, 99, 102, 241), 0.15), rgba(30, 41, 59, 0.8));
+    border-color: rgba(var(--primary-rgb, 99, 102, 241), 0.3);
+}
+
+.hub-card-hero:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 8px 25px rgba(var(--primary-rgb, 99, 102, 241), 0.2);
+    border-color: var(--color-primary);
+}
+
+.hub-card-badge {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.hub-card-shortcut {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-family: monospace;
+}
+
+.dark-mode .hub-card-shortcut {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.hub-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.hub-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.hub-card-desc {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.25;
+    opacity: 0.8;
+}
+
+/* --- Operations & Management Grids --- */
+.hub-grid-operations {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.hub-grid-mgmt {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.hub-card-standard, .hub-card-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.9rem 1.15rem;
+    background: var(--bg-card, #ffffff);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.dark-mode .hub-card-standard,
+.dark-mode .hub-card-compact {
+    background: rgba(30, 41, 59, 0.6);
+}
+
+.hub-card-standard:hover, .hub-card-compact:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-primary);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.pos-launch-btn-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+}
+
+.pos-launch-btn-text {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.pos-launch-btn-sub {
+    font-size: 10px;
+    opacity: 0.85;
+    font-weight: 500;
+}
