@@ -20,9 +20,11 @@ const LivePrintPreviewModal = ({
     const labelH = preset.label_height || 25;
     const layout = preset.page_layout || {};
 
-    const cols = isSheet ? (layout.cols || 3) : 1;
+    const cols = layout.cols || (isSheet ? 3 : 1);
     const rows = isSheet ? (layout.rows || 8) : 1;
     const labelsPerPage = cols * rows;
+
+    const totalRollW = (cols * labelW) + ((cols - 1) * (layout.gapH || 0)) + (layout.marginLeft || 0) + (layout.marginRight || 0);
 
     // Expand queue into individual label items array according to printQty
     const expandedLabels = queue.flatMap(item => {
@@ -30,7 +32,7 @@ const LivePrintPreviewModal = ({
         return Array(qty).fill(item);
     });
 
-    // Group labels into pages
+    // Group labels into pages (or thermal roll rows)
     const pages = [];
     for (let i = 0; i < expandedLabels.length; i += labelsPerPage) {
         pages.push(expandedLabels.slice(i, i + labelsPerPage));
@@ -58,7 +60,7 @@ const LivePrintPreviewModal = ({
                 <div className="studio-modal-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Eye size={20} className="text-primary" />
-                        <h3>Live Print Preview ({expandedLabels.length} Labels across {pages.length} Pages)</h3>
+                        <h3>Live Print Preview ({expandedLabels.length} Labels across {pages.length} {isSheet ? 'Pages' : 'Roll Rows'})</h3>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <button type="button" className="btn btn-secondary" onClick={() => exportAsPDF(printContainerRef.current, preset)}>
@@ -80,12 +82,13 @@ const LivePrintPreviewModal = ({
                                 key={pageIdx}
                                 className="print-page-unit"
                                 style={{
-                                    width: isSheet ? '210mm' : `${labelW * cols + (cols - 1) * (layout.gapH || 0)}mm`,
+                                    width: isSheet ? '210mm' : `${totalRollW}mm`,
                                     height: isSheet ? '297mm' : `${labelH}mm`,
                                     background: '#ffffff',
                                     boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
                                     paddingTop: isSheet ? `${layout.marginTop || 10}mm` : 0,
-                                    paddingLeft: isSheet ? `${layout.marginLeft || 10}mm` : 0,
+                                    paddingLeft: `${layout.marginLeft || (isSheet ? 10 : 0)}mm`,
+                                    paddingRight: `${layout.marginRight || 0}mm`,
                                     boxSizing: 'border-box',
                                     display: 'flex',
                                     flexWrap: 'wrap',

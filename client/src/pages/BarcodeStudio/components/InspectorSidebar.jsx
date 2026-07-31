@@ -82,6 +82,95 @@ const InspectorSidebar = ({
                     </div>
                 </div>
 
+                {/* Thermal Roll Multi-Up Settings */}
+                {preset.paper_type === 'thermal' && (
+                    <div className="inspector-section">
+                        <div className="inspector-title">
+                            <Layers size={16} className="text-primary" />
+                            <span>Stickers Per Row (Roll Layout)</span>
+                        </div>
+
+                        <div className="prop-group">
+                            <label>Roll Format / Multi-Up</label>
+                            <select
+                                className="prop-input"
+                                value={layout.mode || (layout.cols === 2 ? '2up' : layout.cols === 3 ? '3up' : '1up')}
+                                onChange={(e) => {
+                                    const mode = e.target.value;
+                                    let cols = 1;
+                                    let gapH = layout.gapH || 0;
+                                    let marginLeft = layout.marginLeft || 0;
+                                    let marginRight = layout.marginRight || 0;
+
+                                    if (mode === '2up') {
+                                        cols = 2;
+                                        if (!gapH) gapH = 3;
+                                        if (!marginLeft) marginLeft = 2;
+                                        if (!marginRight) marginRight = 2;
+                                    } else if (mode === '3up') {
+                                        cols = 3;
+                                        if (!gapH) gapH = 2;
+                                        if (!marginLeft) marginLeft = 2.5;
+                                        if (!marginRight) marginRight = 2.5;
+                                    } else if (mode === '4up') {
+                                        cols = 4;
+                                        if (!gapH) gapH = 2;
+                                    }
+
+                                    onUpdatePreset({
+                                        page_layout: { ...layout, mode, cols, gapH, marginLeft, marginRight }
+                                    });
+                                }}
+                            >
+                                <option value="1up">1-Up (Single Label per Row)</option>
+                                <option value="2up">2-Up (2 Labels per Row — e.g. TSC TE244 83mm)</option>
+                                <option value="3up">3-Up (3 Labels per Row — e.g. Grocery 105mm)</option>
+                                <option value="4up">4-Up (4 Labels per Row)</option>
+                            </select>
+                        </div>
+
+                        {(layout.cols > 1 || layout.mode === '2up' || layout.mode === '3up') && (
+                            <>
+                                <div className="prop-row">
+                                    <div className="prop-group">
+                                        <label>Gap Between Stickers (mm)</label>
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            className="prop-input"
+                                            value={layout.gapH || 3}
+                                            onChange={(e) => onUpdatePreset({ page_layout: { ...layout, gapH: parseFloat(e.target.value) || 0 } })}
+                                        />
+                                    </div>
+                                    <div className="prop-group">
+                                        <label>Side Margin (mm)</label>
+                                        <input
+                                            type="number"
+                                            step="0.5"
+                                            className="prop-input"
+                                            value={layout.marginLeft || 2}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                onUpdatePreset({ page_layout: { ...layout, marginLeft: val, marginRight: val } });
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.65rem 0.75rem', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)', marginTop: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#60a5fa' }}>Calculated Total Roll Width</div>
+                                    <div style={{ fontSize: '0.95rem', fontWeight: 800, marginTop: '2px' }}>
+                                        {((layout.cols || 2) * (preset.label_width || 38)) + (((layout.cols || 2) - 1) * (layout.gapH || 3)) + (layout.marginLeft || 2) + (layout.marginRight || 2)} mm
+                                    </div>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Set your printer driver paper width to this total width.
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {/* Sheet Layout Settings if Sheet */}
                 {preset.paper_type === 'sheet' && (
                     <div className="inspector-section">

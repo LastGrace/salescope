@@ -2,6 +2,21 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 /**
+ * Calculate total paper roll width for multi-up thermal rolls
+ */
+export const getCalculatedRollWidth = (preset) => {
+    const layout = preset.page_layout || {};
+    const cols = layout.cols || 1;
+    const labelW = preset.label_width || 50;
+    const gapH = layout.gapH || 0;
+    const marginLeft = layout.marginLeft || 0;
+    const marginRight = layout.marginRight || 0;
+
+    if (cols <= 1) return labelW;
+    return (cols * labelW) + ((cols - 1) * gapH) + marginLeft + marginRight;
+};
+
+/**
  * Export label canvas container as Image (PNG/JPEG)
  */
 export const exportAsImage = async (elementRef, filename = 'label', format = 'png') => {
@@ -30,15 +45,8 @@ export const exportAsPDF = async (printContainerRef, preset, filename = 'barcode
     if (!printContainerRef) return;
     try {
         const isSheet = preset.paper_type === 'sheet';
-        const pageLayout = preset.page_layout || {};
-
-        let pdfWidth = preset.label_width || 50;
-        let pdfHeight = preset.label_height || 25;
-
-        if (isSheet) {
-            pdfWidth = 210; // A4 width mm
-            pdfHeight = 297; // A4 height mm
-        }
+        const pdfWidth = isSheet ? 210 : getCalculatedRollWidth(preset);
+        const pdfHeight = isSheet ? 297 : (preset.label_height || 25);
 
         const doc = new jsPDF({
             orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
@@ -71,12 +79,12 @@ export const exportAsPDF = async (printContainerRef, preset, filename = 'barcode
  */
 export const getPrintPageStyle = (preset, printerProfile = {}) => {
     const isSheet = preset.paper_type === 'sheet';
-    const labelW = preset.label_width || 50;
+    const totalRollW = getCalculatedRollWidth(preset);
     const labelH = preset.label_height || 25;
     const offsetX = printerProfile.offset_x || 0;
     const offsetY = printerProfile.offset_y || 0;
 
-    let pageSizeCSS = `${labelW}mm ${labelH}mm`;
+    let pageSizeCSS = `${totalRollW}mm ${labelH}mm`;
     if (isSheet) {
         pageSizeCSS = `${printerProfile.page_size || 'A4'} portrait`;
     }
