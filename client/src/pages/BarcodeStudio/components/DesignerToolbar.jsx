@@ -37,8 +37,9 @@ const DesignerToolbar = ({
 
             {/* Middle Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={onOpenPresetsModal} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>
-                    Presets Library
+                <button type="button" className="btn btn-secondary" onClick={onOpenPresetsModal} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', background: 'rgba(59, 130, 246, 0.15)', borderColor: 'var(--primary)' }}>
+                    <Sparkles size={14} style={{ marginRight: '4px', color: '#60a5fa' }} />
+                    Template Library
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={onOpenPrinterProfilesModal} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>
                     <SlidersHorizontal size={14} style={{ marginRight: '4px' }} />

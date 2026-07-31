@@ -5,7 +5,7 @@ module.exports = async function (connection) {
     const shouldRelease = !connection;
 
     try {
-        console.log('[Migration 010] Creating barcode_presets and printer_profiles tables...');
+        console.log('[Migration 010] Ensuring barcode_presets and printer_profiles tables...');
 
         // 1. Create barcode_presets table
         await conn.query(`
@@ -45,124 +45,170 @@ module.exports = async function (connection) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
 
-        // 3. Seed default presets if empty
-        const [existingPresets] = await conn.query('SELECT COUNT(*) as count FROM barcode_presets');
-        if (existingPresets[0].count === 0) {
-            const defaultPresets = [
-                {
-                    name: 'Product Barcode (Standard)',
-                    category: 'Product Barcode',
-                    is_default: 1,
-                    is_favorite: 1,
-                    label_width: 50.00,
-                    label_height: 25.00,
-                    paper_type: 'thermal',
-                    page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
-                    canvas_data: JSON.stringify([
-                        { id: '1', type: 'text', text: '{{shop_name}}', x: 2, y: 1.5, width: 46, height: 4.5, fontSize: 10, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '2', type: 'text', text: '{{product_name}}', x: 2, y: 6.2, width: 46, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 5, y: 10.5, width: 40, height: 9.5, showText: true, fontSize: 8, visibility: 'always' },
-                        { id: '4', type: 'text', text: 'MRP: ₹{{mrp}}', x: 2, y: 20.5, width: 46, height: 3.8, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
-                    ])
-                },
-                {
-                    name: 'Jewellery Label (Tail Tag)',
-                    category: 'Jewellery Label',
-                    is_default: 0,
-                    is_favorite: 1,
-                    label_width: 60.00,
-                    label_height: 15.00,
-                    paper_type: 'thermal',
-                    page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
-                    canvas_data: JSON.stringify([
-                        { id: '1', type: 'text', text: '{{product_name}}', x: 1, y: 1, width: 28, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'left', color: '#000000', visibility: 'always' },
-                        { id: '2', type: 'text', text: 'W: {{weight}}g', x: 1, y: 5, width: 28, height: 3, fontSize: 7, fontWeight: 'normal', align: 'left', color: '#000000', visibility: 'hide_if_empty' },
-                        { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 31, y: 1, width: 28, height: 9, showText: true, fontSize: 7, visibility: 'always' },
-                        { id: '4', type: 'text', text: '₹{{selling_price}}', x: 1, y: 9, width: 28, height: 4, fontSize: 9, fontWeight: 'bold', align: 'left', color: '#000000', visibility: 'always' }
-                    ])
-                },
-                {
-                    name: 'Price Tag (Shelf / Apparel)',
-                    category: 'Price Tag',
-                    is_default: 0,
-                    is_favorite: 0,
-                    label_width: 38.00,
-                    label_height: 25.00,
-                    paper_type: 'thermal',
-                    page_layout: JSON.stringify({ rows: 1, cols: 2, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 3, gapV: 0 }),
-                    canvas_data: JSON.stringify([
-                        { id: '1', type: 'text', text: '{{brand}}', x: 1, y: 1, width: 36, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'hide_if_empty' },
-                        { id: '2', type: 'text', text: '{{product_name}}', x: 1, y: 5, width: 36, height: 3.5, fontSize: 8, fontWeight: 'normal', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 3, y: 9, width: 32, height: 9, showText: true, fontSize: 7, visibility: 'always' },
-                        { id: '4', type: 'text', text: 'PRICE: ₹{{selling_price}}', x: 1, y: 19, width: 36, height: 4.5, fontSize: 10, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
-                    ])
-                },
-                {
-                    name: 'QR Code Label',
-                    category: 'QR Label',
-                    is_default: 0,
-                    is_favorite: 0,
-                    label_width: 40.00,
-                    label_height: 40.00,
-                    paper_type: 'thermal',
-                    page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
-                    canvas_data: JSON.stringify([
-                        { id: '1', type: 'text', text: '{{product_name}}', x: 2, y: 2, width: 36, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '2', type: 'qrcode', text: '{{barcode}}', x: 10, y: 7, width: 20, height: 20, visibility: 'always' },
-                        { id: '3', type: 'text', text: 'SKU: {{sku}}', x: 2, y: 28, width: 36, height: 3.5, fontSize: 8, fontWeight: 'normal', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '4', type: 'text', text: '₹{{selling_price}}', x: 2, y: 32.5, width: 36, height: 5, fontSize: 11, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
-                    ])
-                },
-                {
-                    name: 'A4 Sticker Sheet (3x8 - 24 Labels)',
-                    category: 'Shelf Label',
-                    is_default: 0,
-                    is_favorite: 0,
-                    label_width: 63.50,
-                    label_height: 33.90,
-                    paper_type: 'sheet',
-                    page_layout: JSON.stringify({ rows: 8, cols: 3, marginTop: 12, marginBottom: 12, marginLeft: 7, marginRight: 7, gapH: 2.5, gapV: 0 }),
-                    canvas_data: JSON.stringify([
-                        { id: '1', type: 'text', text: '{{shop_name}}', x: 2, y: 2, width: 59.5, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '2', type: 'text', text: '{{product_name}}', x: 2, y: 6.5, width: 59.5, height: 4, fontSize: 9, fontWeight: 'normal', align: 'center', color: '#000000', visibility: 'always' },
-                        { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 8, y: 11, width: 47.5, height: 13, showText: true, fontSize: 8, visibility: 'always' },
-                        { id: '4', type: 'text', text: 'MRP: ₹{{mrp}} | OUR PRICE: ₹{{selling_price}}', x: 2, y: 25.5, width: 59.5, height: 4.5, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
-                    ])
-                }
-            ];
+        // 3. Populate / Sync 8 Real-World Industry Templates
+        const templates = [
+            {
+                name: 'TSC TE244 Dual Roll (83mm / 2-Up 38x25mm)',
+                category: 'Thermal 2-Up (TSC)',
+                is_default: 1,
+                is_favorite: 1,
+                label_width: 38.00,
+                label_height: 25.00,
+                paper_type: 'thermal',
+                page_layout: JSON.stringify({ rows: 1, cols: 2, marginTop: 0, marginBottom: 0, marginLeft: 2, marginRight: 2, gapH: 3, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{shop_name}}', x: 1, y: 1, width: 36, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'text', text: '{{product_name}}', x: 1, y: 4.8, width: 36, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 2, y: 8.5, width: 34, height: 9.5, showText: true, fontSize: 7, visibility: 'always' },
+                    { id: '4', type: 'text', text: 'MRP ₹{{mrp}}', x: 1, y: 19, width: 36, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'Standard Retail Tag (1-Up 50x25mm)',
+                category: 'Thermal 1-Up',
+                is_default: 0,
+                is_favorite: 1,
+                label_width: 50.00,
+                label_height: 25.00,
+                paper_type: 'thermal',
+                page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{shop_name}}', x: 2, y: 1.5, width: 46, height: 4.5, fontSize: 10, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'text', text: '{{product_name}}', x: 2, y: 6.2, width: 46, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 5, y: 10.5, width: 40, height: 9.5, showText: true, fontSize: 8, visibility: 'always' },
+                    { id: '4', type: 'text', text: 'PRICE: ₹{{selling_price}}', x: 2, y: 20.5, width: 46, height: 3.8, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'Jewellery Dumbbell / Tail Tag (60x15mm)',
+                category: 'Jewellery',
+                is_default: 0,
+                is_favorite: 1,
+                label_width: 60.00,
+                label_height: 15.00,
+                paper_type: 'thermal',
+                page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{product_name}}', x: 1, y: 1, width: 28, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'left', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'text', text: 'WT: {{weight}}g', x: 1, y: 5, width: 28, height: 3, fontSize: 7, fontWeight: 'normal', align: 'left', color: '#000000', visibility: 'hide_if_empty' },
+                    { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 31, y: 1, width: 28, height: 9, showText: true, fontSize: 7, visibility: 'always' },
+                    { id: '4', type: 'text', text: 'NET: ₹{{selling_price}}', x: 1, y: 9.5, width: 28, height: 4, fontSize: 8.5, fontWeight: 'bold', align: 'left', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'Shelf Edge Price Tag (40x30mm)',
+                category: 'Thermal 1-Up',
+                is_default: 0,
+                is_favorite: 0,
+                label_width: 40.00,
+                label_height: 30.00,
+                paper_type: 'thermal',
+                page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{brand}}', x: 1, y: 1.5, width: 38, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'hide_if_empty' },
+                    { id: '2', type: 'text', text: '{{product_name}}', x: 1, y: 5.5, width: 38, height: 4, fontSize: 8.5, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 3, y: 10, width: 34, height: 11, showText: true, fontSize: 7, visibility: 'always' },
+                    { id: '4', type: 'text', text: 'MRP ₹{{mrp}} | OUR PRICE ₹{{selling_price}}', x: 1, y: 23, width: 38, height: 5, fontSize: 8.5, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'QR Code Product Tag (40x40mm)',
+                category: 'Thermal 1-Up',
+                is_default: 0,
+                is_favorite: 0,
+                label_width: 40.00,
+                label_height: 40.00,
+                paper_type: 'thermal',
+                page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{product_name}}', x: 2, y: 2, width: 36, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'qrcode', text: '{{barcode}}', x: 10, y: 7, width: 20, height: 20, visibility: 'always' },
+                    { id: '3', type: 'text', text: 'SKU: {{sku}}', x: 2, y: 28, width: 36, height: 3.5, fontSize: 8, fontWeight: 'normal', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '4', type: 'text', text: '₹{{selling_price}}', x: 2, y: 32.5, width: 36, height: 5, fontSize: 11, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'A4 Sticker Sheet 3x8 (24-Up 63.5x33.9mm)',
+                category: 'A4 Sheets',
+                is_default: 0,
+                is_favorite: 0,
+                label_width: 63.50,
+                label_height: 33.90,
+                paper_type: 'sheet',
+                page_layout: JSON.stringify({ rows: 8, cols: 3, marginTop: 12, marginBottom: 12, marginLeft: 7, marginRight: 7, gapH: 2.5, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{shop_name}}', x: 2, y: 2, width: 59.5, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'text', text: '{{product_name}}', x: 2, y: 6.5, width: 59.5, height: 4, fontSize: 9, fontWeight: 'normal', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '3', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 8, y: 11, width: 47.5, height: 13, showText: true, fontSize: 8, visibility: 'always' },
+                    { id: '4', type: 'text', text: 'MRP: ₹{{mrp}} | OUR PRICE: ₹{{selling_price}}', x: 2, y: 25.5, width: 59.5, height: 4.5, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'A4 Sticker Sheet 4x10 (40-Up 48.5x25.4mm)',
+                category: 'A4 Sheets',
+                is_default: 0,
+                is_favorite: 0,
+                label_width: 48.50,
+                label_height: 25.40,
+                paper_type: 'sheet',
+                page_layout: JSON.stringify({ rows: 10, cols: 4, marginTop: 10, marginBottom: 10, marginLeft: 7, marginRight: 7, gapH: 2, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{product_name}}', x: 1, y: 1.5, width: 46.5, height: 3.5, fontSize: 8, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 4, y: 5.5, width: 40.5, height: 11, showText: true, fontSize: 7, visibility: 'always' },
+                    { id: '3', type: 'text', text: 'PRICE: ₹{{selling_price}}', x: 1, y: 18.5, width: 46.5, height: 4, fontSize: 9, fontWeight: 'bold', align: 'center', color: '#000000', visibility: 'always' }
+                ])
+            },
+            {
+                name: 'Shipping / Carton Label (100x50mm)',
+                category: 'Thermal 1-Up',
+                is_default: 0,
+                is_favorite: 0,
+                label_width: 100.00,
+                label_height: 50.00,
+                paper_type: 'thermal',
+                page_layout: JSON.stringify({ rows: 1, cols: 1, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, gapH: 0, gapV: 0 }),
+                canvas_data: JSON.stringify([
+                    { id: '1', type: 'text', text: '{{shop_name}} - SHIPMENT', x: 3, y: 3, width: 94, height: 5, fontSize: 12, fontWeight: 'bold', align: 'left', color: '#000000', visibility: 'always' },
+                    { id: '2', type: 'text', text: 'ITEM: {{product_name}}', x: 3, y: 9, width: 94, height: 4.5, fontSize: 10, fontWeight: 'bold', align: 'left', color: '#000000', visibility: 'always' },
+                    { id: '3', type: 'text', text: 'SKU: {{sku}} | CATEGORY: {{category}}', x: 3, y: 14, width: 94, height: 4, fontSize: 9, fontWeight: 'normal', align: 'left', color: '#000000', visibility: 'always' },
+                    { id: '4', type: 'barcode', format: 'CODE128', text: '{{barcode}}', x: 15, y: 19, width: 70, height: 18, showText: true, fontSize: 9, visibility: 'always' },
+                    { id: '5', type: 'text', text: 'MRP: ₹{{mrp}}', x: 3, y: 40, width: 94, height: 6, fontSize: 12, fontWeight: 'bold', align: 'right', color: '#000000', visibility: 'always' }
+                ])
+            }
+        ];
 
-            for (const p of defaultPresets) {
+        for (const t of templates) {
+            const [existing] = await conn.query('SELECT id FROM barcode_presets WHERE name = ?', [t.name]);
+            if (existing.length === 0) {
                 await conn.query(`
                     INSERT INTO barcode_presets 
                     (name, category, is_default, is_favorite, label_width, label_height, paper_type, page_layout, canvas_data)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, [p.name, p.category, p.is_default, p.is_favorite, p.label_width, p.label_height, p.paper_type, p.page_layout, p.canvas_data]);
+                `, [t.name, t.category, t.is_default, t.is_favorite, t.label_width, t.label_height, t.paper_type, t.page_layout, t.canvas_data]);
             }
-            console.log('[Migration 010] Seeded default barcode presets.');
         }
 
         // 4. Seed default printer profiles if empty
-        const [existingPrinters] = await conn.query('SELECT COUNT(*) as count FROM printer_profiles');
-        if (existingPrinters[0].count === 0) {
-            const defaultPrinters = [
-                { name: 'Generic Thermal Printer (203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 10, speed: 3, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 1 },
-                { name: 'TSC TE244 / TE200 (203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 12, speed: 4, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 0 },
-                { name: 'Zebra ZD220 / ZD420 (203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 10, speed: 4, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 0 },
-                { name: 'Xprinter / TVS Electronics (203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 10, speed: 3, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 0 },
-                { name: 'Standard Office Printer (A4 Sheet)', printer_type: 'office', dpi: 300, print_mode: 'continuous', darkness: 0, speed: 0, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'A4', is_default: 0 }
-            ];
+        const defaultPrinters = [
+            { name: 'TSC TE244 / TE200 (83mm Dual Roll - 203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 12, speed: 4, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 1 },
+            { name: 'Generic Thermal Printer (1-Up 203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 10, speed: 3, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 0 },
+            { name: 'Zebra ZD220 / ZD420 (203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 10, speed: 4, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 0 },
+            { name: 'TVS / Xprinter / Godex (203 DPI)', printer_type: 'thermal', dpi: 203, print_mode: 'gap', darkness: 10, speed: 3, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'Custom', is_default: 0 },
+            { name: 'Standard Office Laser Printer (A4 Sheet)', printer_type: 'office', dpi: 300, print_mode: 'continuous', darkness: 0, speed: 0, offset_x: 0, offset_y: 0, feed_direction: 'normal', page_size: 'A4', is_default: 0 }
+        ];
 
-            for (const pr of defaultPrinters) {
+        for (const pr of defaultPrinters) {
+            const [existing] = await conn.query('SELECT id FROM printer_profiles WHERE name = ?', [pr.name]);
+            if (existing.length === 0) {
                 await conn.query(`
                     INSERT INTO printer_profiles
                     (name, printer_type, dpi, print_mode, darkness, speed, offset_x, offset_y, feed_direction, page_size, is_default)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [pr.name, pr.printer_type, pr.dpi, pr.print_mode, pr.darkness, pr.speed, pr.offset_x, pr.offset_y, pr.feed_direction, pr.page_size, pr.is_default]);
             }
-            console.log('[Migration 010] Seeded default printer profiles.');
         }
 
-        console.log('[Migration 010] Done.');
+        console.log('[Migration 010] Barcode Studio presets & printer profiles synced.');
     } catch (err) {
         console.error('[Migration 010] Failed:', err.message);
         throw err;
