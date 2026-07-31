@@ -18,7 +18,7 @@ const POSNew             = lazy(() => import('./pages/POSNew.jsx'));
 const SalesRecords       = lazy(() => import('./pages/SalesRecords.jsx'));
 const Customers          = lazy(() => import('./pages/Customers.jsx'));
 const PurchaseOrders     = lazy(() => import('./pages/PurchaseOrders.jsx'));
-const BarcodeGenerator   = lazy(() => import('./pages/BarcodeGenerator.jsx'));
+const BarcodeStudio      = lazy(() => import('./pages/BarcodeStudio/BarcodeStudio.jsx'));
 const QuickAddProduct    = lazy(() => import('./pages/QuickAddProduct.jsx'));
 const CreditBills        = lazy(() => import('./pages/CreditBills.jsx'));
 const LoyaltySettings    = lazy(() => import('./pages/LoyaltySettings.jsx'));
@@ -356,7 +356,7 @@ const App = () => {
             <Route path="orders" element={<PurchaseOrders />} />
             <Route path="credit-bills" element={<CreditBills />} />
             <Route path="credit-notes" element={<CreditNotes />} />
-            <Route path="barcodes" element={<BarcodeGenerator />} />
+            <Route path="barcodes" element={<BarcodeStudio />} />
             <Route path="quick-add" element={<QuickAddProduct />} />
             <Route path="loyalty-settings" element={<LoyaltySettings />} />
             <Route path="categories" element={<CategoryManager />} />

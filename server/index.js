@@ -346,6 +346,7 @@ function startBackgroundServices() {
     app.use('/api/debug',           lazyRoute('debug',           './routes/debug'));
     app.use('/api/backup',          lazyRoute('backup',          './routes/backup'));
     app.use('/api/whatsapp',        lazyRoute('whatsapp',        './routes/whatsapp'));
+    app.use('/api/barcode',         lazyRoute('barcode',         './routes/barcode'));
     _bp('all lazy routes registered');
 
     // Fallback handlers must be attached last, so we attach them here after routes

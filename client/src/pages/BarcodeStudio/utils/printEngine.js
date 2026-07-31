@@ -1,0 +1,109 @@
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+
+/**
+ * Export label canvas container as Image (PNG/JPEG)
+ */
+export const exportAsImage = async (elementRef, filename = 'label', format = 'png') => {
+    if (!elementRef) return;
+    try {
+        const canvas = await html2canvas(elementRef, {
+            scale: 4,
+            useCORS: true,
+            backgroundColor: '#ffffff'
+        });
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const image = canvas.toDataURL(mimeType, 1.0);
+        const link = document.createElement('a');
+        link.download = `${filename}.${format}`;
+        link.href = image;
+        link.click();
+    } catch (err) {
+        console.error('Export as image error:', err);
+    }
+};
+
+/**
+ * Export batch print as PDF document
+ */
+export const exportAsPDF = async (printContainerRef, preset, filename = 'barcode_labels') => {
+    if (!printContainerRef) return;
+    try {
+        const isSheet = preset.paper_type === 'sheet';
+        const pageLayout = preset.page_layout || {};
+
+        let pdfWidth = preset.label_width || 50;
+        let pdfHeight = preset.label_height || 25;
+
+        if (isSheet) {
+            pdfWidth = 210; // A4 width mm
+            pdfHeight = 297; // A4 height mm
+        }
+
+        const doc = new jsPDF({
+            orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [pdfWidth, pdfHeight]
+        });
+
+        const pages = printContainerRef.querySelectorAll('.print-page-unit');
+        for (let i = 0; i < pages.length; i++) {
+            if (i > 0) doc.addPage([pdfWidth, pdfHeight]);
+
+            const canvas = await html2canvas(pages[i], {
+                scale: 3,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        }
+
+        doc.save(`${filename}.pdf`);
+    } catch (err) {
+        console.error('Export as PDF error:', err);
+    }
+};
+
+/**
+ * Generate CSS `@page` rule for standard printing
+ */
+export const getPrintPageStyle = (preset, printerProfile = {}) => {
+    const isSheet = preset.paper_type === 'sheet';
+    const labelW = preset.label_width || 50;
+    const labelH = preset.label_height || 25;
+    const offsetX = printerProfile.offset_x || 0;
+    const offsetY = printerProfile.offset_y || 0;
+
+    let pageSizeCSS = `${labelW}mm ${labelH}mm`;
+    if (isSheet) {
+        pageSizeCSS = `${printerProfile.page_size || 'A4'} portrait`;
+    }
+
+    return `
+        @page {
+            size: ${pageSizeCSS};
+            margin: 0mm;
+        }
+        @media print {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .print-page-unit {
+                box-sizing: border-box !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                transform: translate(${offsetX}mm, ${offsetY}mm) !important;
+            }
+            .print-page-unit:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+        }
+    `;
+};

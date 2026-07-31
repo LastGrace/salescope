@@ -144,6 +144,9 @@ const Layout = () => {
                     <NavLink to="/inventory" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Inventory">
                         <Package size={20} /> <span className="nav-text">Inventory</span>
                     </NavLink>
+                    <NavLink to="/barcodes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} style={{ paddingLeft: '2.5rem' }} title="Barcode Studio">
+                        <Barcode size={18} /> <span className="nav-text" style={{ fontSize: '0.85rem' }}>Barcode Studio</span>
+                    </NavLink>
                     <NavLink to="/quick-add" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Quick Add">
                         <Plus size={20} /> <span className="nav-text">Quick Add</span>
                     </NavLink>
@@ -152,9 +155,6 @@ const Layout = () => {
                     </NavLink>
                     <NavLink to="/whatsapp-bulk" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="WhatsApp">
                         <Smartphone size={20} /> <span className="nav-text">WhatsApp</span>
-                    </NavLink>
-                    <NavLink to="/barcodes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Barcodes">
-                        <Barcode size={20} /> <span className="nav-text">Barcodes</span>
                     </NavLink>
 
                     {user?.role === 'manager' && (
