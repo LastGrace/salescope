@@ -112,26 +112,26 @@ router.get('/summary', verifyToken, checkPermission('dashboard.view'), async (re
             db.query(`SELECT COALESCE(SUM(quantity), 0) as total FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE ${sDateWhereClause}`, dateQueryParam)
         ]);
 
-        const sTotal = salesTotal[0][0].total || 0;
-        const bTotal = billsTotal[0][0].count || 0;
-        const iTotal = itemsTotal[0][0].total || 0;
+        const sTotal = salesTotal[0]?.[0]?.total || 0;
+        const bTotal = billsTotal[0]?.[0]?.count || 0;
+        const iTotal = itemsTotal[0]?.[0]?.total || 0;
 
         res.json({
             sales: sTotal,
             bills: bTotal,
             avg_bill_value: (sTotal / (bTotal || 1)),
             avg_items_per_bill: (iTotal / (bTotal || 1)),
-            low_stock_count: lowStockCount[0][0].count || 0,
-            outstanding_credit: creditResult[0][0].total || 0,
-            inventory_value: inventoryValue[0][0].total || 0,
-            expenses: expensesTotal[0][0].total || 0,
-            profit: profitTotal[0][0].total || 0,
-            net_margin: ((profitTotal[0][0].total || 0) / (sTotal || 1)) * 100,
-            pending_pos: pendingPOs[0][0].count || 0,
-            active_coupons: activeCoupons[0][0].count || 0,
-            loyalty_liability: loyaltyLiability[0][0].total || 0,
-            returns: returnsTotal[0][0].total || 0,
-            dead_stock_value: deadStockValue[0][0].total || 0
+            low_stock_count: lowStockCount[0]?.[0]?.count || 0,
+            outstanding_credit: creditResult[0]?.[0]?.total || 0,
+            inventory_value: inventoryValue[0]?.[0]?.total || 0,
+            expenses: expensesTotal[0]?.[0]?.total || 0,
+            profit: profitTotal[0]?.[0]?.total || 0,
+            net_margin: ((profitTotal[0]?.[0]?.total || 0) / (sTotal || 1)) * 100,
+            pending_pos: pendingPOs[0]?.[0]?.count || 0,
+            active_coupons: activeCoupons[0]?.[0]?.count || 0,
+            loyalty_liability: loyaltyLiability[0]?.[0]?.total || 0,
+            returns: returnsTotal[0]?.[0]?.total || 0,
+            dead_stock_value: deadStockValue[0]?.[0]?.total || 0
         });
 
     } catch (err) {
@@ -329,9 +329,9 @@ router.get('/inventory-analytics', verifyToken, checkPermission('dashboard.view'
         ]);
 
         res.json({
-            low_stock_items: lowStock[0],
-            out_of_stock_count: outOfStock[0][0].count,
-            fast_moving: fastMoving[0]
+            low_stock_items: lowStock[0] || [],
+            out_of_stock_count: outOfStock[0]?.[0]?.count || 0,
+            fast_moving: fastMoving[0] || []
         });
 
     } catch (err) {
@@ -565,12 +565,12 @@ router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), as
         // No filesystem write on API request
 
         res.json({
-            hourly_traffic: hourly[0],
-            payment_methods: payments[0],
-            trending_items: trending[0],
-            discount_impact: todayStats[0][0].total_discount_given || 0,
-            avg_checkout_today: todayStats[0][0].avg_checkout || 0,
-            typical_checkout: typicalStats[0][0].typical_checkout || 0
+            hourly_traffic: hourly[0] || [],
+            payment_methods: payments[0] || [],
+            trending_items: trending[0] || [],
+            discount_impact: todayStats[0]?.[0]?.total_discount_given || 0,
+            avg_checkout_today: todayStats[0]?.[0]?.avg_checkout || 0,
+            typical_checkout: typicalStats[0]?.[0]?.typical_checkout || 0
         });
 
     } catch (err) {
