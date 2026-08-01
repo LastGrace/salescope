@@ -536,7 +536,7 @@ router.get('/today-activity', verifyToken, checkPermission('dashboard.view'), as
                 JOIN sales s ON si.sale_id = s.id
                 JOIN products p ON si.product_id = p.id
                 WHERE s.created_at >= ? AND s.created_at < ?
-                GROUP BY p.id
+                GROUP BY p.id, p.name, p.barcode
                 ORDER BY qty DESC
                 LIMIT 3
             `, [startTodayStr, endTodayStr]),

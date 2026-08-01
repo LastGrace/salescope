@@ -68,6 +68,9 @@ async function checkAndMigrate() {
         // 1. Check for product_add_sound_url
         await ensureColumn('store_settings', 'product_add_sound_url', 'VARCHAR(255) AFTER login_logo_height');
 
+        // Check for sales.credit_note_amount
+        await ensureColumn('sales', 'credit_note_amount', 'DECIMAL(10,2) DEFAULT 0.00 AFTER total_amount');
+
         // 2. Check for pos_background fields individually
         await ensureColumn('store_settings', 'pos_background_url', 'VARCHAR(255) AFTER login_logo_height');
         await ensureColumn('store_settings', 'pos_background_width', 'VARCHAR(50) AFTER pos_background_url');

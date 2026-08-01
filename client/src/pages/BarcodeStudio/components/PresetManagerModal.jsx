@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Star, Check, Copy, Trash2, Download, Upload, Sparkles, Search, Tag, Zap, Package, Gem, ShoppingBag, Truck, Grid, AlignLeft, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -448,6 +448,7 @@ const PresetManagerModal = ({
     const [importJsonText, setImportJsonText] = useState('');
     const [showImportForm, setShowImportForm] = useState(false);
     const [activeTab, setActiveTab] = useState('builtin'); // 'builtin' | 'saved'
+    const fileInputRef = useRef(null);
 
     // ⚠️ Early return MUST be after all hooks (Rules of Hooks)
     if (!isOpen) return null;
@@ -466,29 +467,78 @@ const PresetManagerModal = ({
     });
 
     const handleExport = (preset) => {
-        const jsonStr = JSON.stringify(preset, null, 2);
+        if (!preset) return;
+        const exportData = {
+            name: preset.name || 'Exported Barcode Template',
+            category: preset.category || 'General',
+            paper_type: preset.paper_type || 'thermal',
+            label_width: preset.label_width || 50,
+            label_height: preset.label_height || 25,
+            corner_radius: preset.corner_radius || 0,
+            description: preset.description || '',
+            page_layout: preset.page_layout || {
+                rows: 1, cols: 1, mode: '1up',
+                marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
+                gapH: 0, gapV: 0,
+                col2OffsetX: 0, col2OffsetY: 0,
+                col3OffsetX: 0, col3OffsetY: 0
+            },
+            canvas_data: (preset.canvas_data || []).map(el => ({ ...el })),
+            exported_at: new Date().toISOString(),
+            version: '2.0'
+        };
+
+        const jsonStr = JSON.stringify(exportData, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${(preset.name || 'preset').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_preset.json`;
+        a.download = `${(preset.name || 'barcode_template').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_preset.json`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success(`Exported ${preset.name}`);
+        toast.success(`Exported "${preset.name}" as JSON file!`);
+    };
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const parsed = JSON.parse(evt.target.result);
+                if (!parsed.name || !parsed.canvas_data || !Array.isArray(parsed.canvas_data)) {
+                    toast.error('Invalid template JSON file — must contain "name" and "canvas_data" array');
+                    return;
+                }
+                onImportPreset(parsed);
+                setShowImportForm(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                onClose();
+                toast.success(`Template "${parsed.name}" imported successfully!`);
+            } catch (err) {
+                console.error('Import JSON file error:', err);
+                toast.error('Invalid JSON file — check JSON syntax');
+            }
+        };
+        reader.readAsText(file);
     };
 
     const handleImportSubmit = (e) => {
         e.preventDefault();
         try {
             const parsed = JSON.parse(importJsonText);
-            if (!parsed.name || !parsed.canvas_data) {
-                toast.error('Invalid preset JSON – needs "name" and "canvas_data"');
+            if (!parsed.name || !parsed.canvas_data || !Array.isArray(parsed.canvas_data)) {
+                toast.error('Invalid preset JSON – needs "name" and "canvas_data" array');
                 return;
             }
             onImportPreset(parsed);
             setShowImportForm(false);
             setImportJsonText('');
-            toast.success('Preset imported!');
+            onClose();
+            toast.success(`Template "${parsed.name}" imported successfully!`);
         } catch {
             toast.error('JSON parsing error – check your JSON syntax');
         }
@@ -588,23 +638,48 @@ const PresetManagerModal = ({
                         })}
                     </div>
 
+                    {/* Hidden File Input for JSON import */}
+                    <input
+                        type="file"
+                        accept=".json,application/json"
+                        ref={fileInputRef}
+                        style={{ display: 'none' }}
+                        onChange={handleFileUpload}
+                    />
+
                     {/* Import Form */}
                     {showImportForm && (
-                        <form onSubmit={handleImportSubmit} style={{ background: 'rgba(15,23,42,0.6)', padding: '1rem', borderRadius: 8, marginBottom: '1rem', border: '1px solid #334155' }}>
-                            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#f8fafc' }}>Paste Custom Preset JSON</h4>
-                            <textarea
-                                rows={4}
-                                className="prop-input"
-                                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
-                                placeholder='{"name": "My Custom Tag", "canvas_data": [...] }'
-                                value={importJsonText}
-                                onChange={(e) => setImportJsonText(e.target.value)}
-                            />
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowImportForm(false)}>Cancel</button>
-                                <button type="submit" className="btn btn-primary">Import Template</button>
+                        <div style={{ background: 'rgba(15,23,42,0.7)', padding: '1rem', borderRadius: 10, marginBottom: '0.75rem', border: '1px solid #3b82f6' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#f8fafc', fontWeight: 700 }}>Import Barcode Template JSON</h4>
+                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Upload a downloaded .json template file or paste raw JSON below</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Upload size={14} /> Upload .JSON File From Computer
+                                </button>
                             </div>
-                        </form>
+
+                            <form onSubmit={handleImportSubmit}>
+                                <textarea
+                                    rows={4}
+                                    className="prop-input"
+                                    style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.75rem', background: '#090d16' }}
+                                    placeholder='Or paste custom JSON code here: {"name": "My Custom Label", "label_width": 50, "label_height": 25, "canvas_data": [...] }'
+                                    value={importJsonText}
+                                    onChange={(e) => setImportJsonText(e.target.value)}
+                                />
+                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end' }}>
+                                    <button type="button" className="btn btn-secondary" onClick={() => setShowImportForm(false)}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary">Import Pasted JSON</button>
+                                </div>
+                            </form>
+                        </div>
                     )}
 
                     {/* Built-in Templates Grid */}
@@ -657,23 +732,34 @@ const PresetManagerModal = ({
                                                 <LabelMiniPreview template={template} />
 
                                                 {/* Description */}
-                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.4, flex: 1 }}>
                                                     {template.description}
                                                 </div>
 
-                                                {/* Load Button */}
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-primary"
-                                                    style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem 0', background: `linear-gradient(135deg, ${colors.accent}22, ${colors.accent}33)`, color: colors.accent, border: `1px solid ${colors.accent}55`, fontWeight: 700 }}
-                                                    onClick={() => {
-                                                        onSelectPreset({ ...template });
-                                                        onClose();
-                                                        toast.success(`Loaded: ${template.name}`);
-                                                    }}
-                                                >
-                                                    Use This Template →
-                                                </button>
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.25rem' }}>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-secondary"
+                                                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.55rem', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                                        onClick={() => handleExport(template)}
+                                                        title="Export JSON configuration file"
+                                                    >
+                                                        <Download size={13} /> Export JSON
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-primary"
+                                                        style={{ flex: 1, fontSize: '0.78rem', padding: '0.35rem 0', background: `linear-gradient(135deg, ${colors.accent}22, ${colors.accent}33)`, color: colors.accent, border: `1px solid ${colors.accent}55`, fontWeight: 700 }}
+                                                        onClick={() => {
+                                                            onSelectPreset({ ...template });
+                                                            onClose();
+                                                            toast.success(`Loaded: ${template.name}`);
+                                                        }}
+                                                    >
+                                                        Use This Template →
+                                                    </button>
+                                                </div>
                                             </div>
                                         );
                                     })}

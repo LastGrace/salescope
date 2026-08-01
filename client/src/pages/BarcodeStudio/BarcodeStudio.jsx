@@ -382,6 +382,8 @@ const BarcodeStudio = () => {
                 isOpen={showPreviewModal}
                 onClose={() => setShowPreviewModal(false)}
                 preset={activePreset}
+                presets={presets}
+                onSelectPreset={(p) => setActivePreset(p)}
                 printerProfile={activePrinterProfile}
                 queue={queue.length > 0 ? queue : [{ ...sampleProduct, printQty: 1 }]}
                 storeInfo={storeInfo}

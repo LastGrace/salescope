@@ -80,14 +80,16 @@ export const generateBarcodeDataUrl = (bcText, format = 'code128', options = {})
         else if (bcFormat === 'pdf417') bcid = 'pdf417';
         else if (bcFormat === 'aztec') bcid = 'aztec';
 
+        const barColor = (options.color || options.barColor || '#000000').replace('#', '');
+
         bwipjs.toCanvas(canvas, {
             bcid,
             text: bcText || '123456789',
-            scale: options.scale || 3,
-            height: options.height || 10,
-            includetext: options.showText !== undefined ? options.showText : true,
+            scale: options.scale || 4,
+            height: options.barHeight !== undefined ? Number(options.barHeight) : (options.height || 12),
+            includetext: options.showText !== undefined ? Boolean(options.showText) : false,
             textxalign: 'center',
-            textsize: options.fontSize || 10,
+            barcolor: barColor,
             rotate: options.rotation ? 'R' : 'N'
         });
 

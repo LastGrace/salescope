@@ -7,6 +7,8 @@ const LivePrintPreviewModal = ({
     isOpen,
     onClose,
     preset,
+    presets,
+    onSelectPreset,
     printerProfile,
     queue,
     storeInfo
@@ -39,16 +41,39 @@ const LivePrintPreviewModal = ({
     }
 
     const handlePrintNow = () => {
+        if (!printContainerRef.current) return;
+
+        // 1. Clean up existing mount if present
+        let printMount = document.getElementById('barcode-print-mount');
+        if (printMount) {
+            printMount.remove();
+        }
+
+        // 2. Create isolated root print container
+        printMount = document.createElement('div');
+        printMount.id = 'barcode-print-mount';
+        printMount.innerHTML = printContainerRef.current.innerHTML;
+        document.body.appendChild(printMount);
+
+        // 3. Inject print CSS
         const styleText = getPrintPageStyle(preset, printerProfile);
         const styleEl = document.createElement('style');
+        styleEl.id = 'barcode-print-style';
         styleEl.type = 'text/css';
         styleEl.appendChild(document.createTextNode(styleText));
         document.head.appendChild(styleEl);
 
+        // 4. Trigger browser print
         window.print();
 
+        // 5. Clean up temporary mount and styles
         setTimeout(() => {
-            document.head.removeChild(styleEl);
+            if (printMount && printMount.parentNode) {
+                printMount.parentNode.removeChild(printMount);
+            }
+            if (styleEl && styleEl.parentNode) {
+                styleEl.parentNode.removeChild(styleEl);
+            }
         }, 1000);
     };
 
@@ -56,11 +81,29 @@ const LivePrintPreviewModal = ({
 
     return (
         <div className="studio-modal-overlay">
-            <div className="studio-modal-card" style={{ maxWidth: '1000px', height: '90vh' }}>
+            <div className="studio-modal-card" style={{ maxWidth: '1050px', height: '90vh' }}>
                 <div className="studio-modal-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <Eye size={20} className="text-primary" />
-                        <h3>Live Print Preview ({expandedLabels.length} Labels across {pages.length} {isSheet ? 'Pages' : 'Roll Rows'})</h3>
+                        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Live Print Preview ({expandedLabels.length} Labels)</h3>
+
+                        {presets && presets.length > 0 && (
+                            <select
+                                className="prop-input"
+                                style={{ width: 'auto', padding: '0.35rem 0.65rem', fontSize: '0.8rem', background: '#1e293b', borderColor: 'var(--primary)', color: '#60a5fa', fontWeight: 700, borderRadius: '6px', cursor: 'pointer' }}
+                                value={preset?.id || ''}
+                                onChange={(e) => {
+                                    const found = presets.find(p => String(p.id) === String(e.target.value));
+                                    if (found && onSelectPreset) onSelectPreset(found);
+                                }}
+                            >
+                                {presets.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        📋 {p.name} ({p.label_width}×{p.label_height}mm)
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <button type="button" className="btn btn-secondary" onClick={() => exportAsPDF(printContainerRef.current, preset)}>
@@ -98,6 +141,17 @@ const LivePrintPreviewModal = ({
                             >
                                 {pageItems.map((item, labelIdx) => {
                                     const productData = { product: item, store: storeInfo };
+                                    const colIndex = labelIdx % cols;
+                                    let extraX = 0;
+                                    let extraY = 0;
+
+                                    if (colIndex === 1) {
+                                        extraX = layout.col2OffsetX || 0;
+                                        extraY = layout.col2OffsetY || 0;
+                                    } else if (colIndex === 2) {
+                                        extraX = layout.col3OffsetX || 0;
+                                        extraY = layout.col3OffsetY || 0;
+                                    }
 
                                     return (
                                         <div
@@ -106,6 +160,8 @@ const LivePrintPreviewModal = ({
                                                 width: `${labelW}mm`,
                                                 height: `${labelH}mm`,
                                                 position: 'relative',
+                                                left: extraX ? `${extraX}mm` : '0mm',
+                                                top: extraY ? `${extraY}mm` : '0mm',
                                                 background: '#ffffff',
                                                 overflow: 'hidden',
                                                 boxSizing: 'border-box'
@@ -137,29 +193,67 @@ const LivePrintPreviewModal = ({
                                                         }}
                                                     >
                                                         {el.type === 'text' && (
-                                                            <span style={{
+                                                            <div style={{
+                                                                width: el.autoWidth ? 'auto' : '100%',
+                                                                minWidth: el.autoWidth ? 'max-content' : '100%',
+                                                                height: '100%',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
                                                                 fontFamily: el.fontFamily || 'sans-serif',
                                                                 fontSize: `${el.fontSize || 10}pt`,
-                                                                fontWeight: el.fontWeight || 'normal',
+                                                                fontWeight: el.fontWeight || 'bold',
                                                                 fontStyle: el.fontStyle || 'normal',
                                                                 textDecoration: el.textDecoration || 'none',
                                                                 color: el.color || '#000000',
                                                                 letterSpacing: `${el.letterSpacing || 0}px`,
                                                                 lineHeight: el.lineHeight || 1.1,
                                                                 whiteSpace: 'nowrap',
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis'
+                                                                overflow: el.autoWidth ? 'visible' : 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : 'none',
+                                                                borderRadius: `${el.borderRadius || 0}px`,
+                                                                padding: el.padding ? `${el.padding * MM_TO_PX}px` : 0,
+                                                                boxSizing: 'border-box'
                                                             }}>
                                                                 {resolvedText}
-                                                            </span>
+                                                            </div>
                                                         )}
 
+                                                        {/* BARCODE ELEMENT */}
                                                         {el.type === 'barcode' && (
-                                                            <img
-                                                                src={generateBarcodeDataUrl(resolvedText, el.format || 'code128', { showText: el.showText })}
-                                                                alt="bc"
-                                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                            />
+                                                            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                                                                <img
+                                                                    src={generateBarcodeDataUrl(resolvedText, el.format || 'code128', {
+                                                                        showText: false,
+                                                                        barHeight: el.barHeight || 12,
+                                                                        color: el.color || '#000000',
+                                                                        scale: 4
+                                                                    })}
+                                                                    alt="bc"
+                                                                    style={{ width: '100%', flex: 1, maxHeight: `${el.barHeight || 12}mm`, objectFit: 'contain' }}
+                                                                />
+                                                                {el.showText !== false && (
+                                                                    <div
+                                                                        style={{
+                                                                            marginTop: `${el.textMargin ?? 2}pt`,
+                                                                            fontSize: `${el.textSize || 10}pt`,
+                                                                            fontWeight: el.textWeight === 'black' ? 900 : el.textWeight === 'extrabold' ? 800 : el.textWeight === 'semibold' ? 600 : el.textWeight === 'medium' ? 500 : el.textWeight === 'normal' ? 400 : 700,
+                                                                            fontFamily: el.textFont === 'OCR-B' ? 'monospace, "Courier New", sans-serif' : el.textFont === 'Courier' ? 'monospace' : el.textFont || 'sans-serif',
+                                                                            color: el.color || '#000000',
+                                                                            textAlign: 'center',
+                                                                            whiteSpace: 'nowrap',
+                                                                            lineHeight: 1.1,
+                                                                            letterSpacing: '0.5px',
+                                                                            width: '100%',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis'
+                                                                        }}
+                                                                    >
+                                                                        {resolvedText || '123456789'}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         )}
 
                                                         {el.type === 'qrcode' && (

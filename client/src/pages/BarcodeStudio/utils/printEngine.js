@@ -95,19 +95,42 @@ export const getPrintPageStyle = (preset, printerProfile = {}) => {
             margin: 0mm;
         }
         @media print {
+            /* Hide all web application elements, sidebars, headers, and modals */
+            body > *:not(#barcode-print-mount) {
+                display: none !important;
+            }
+
             html, body {
                 margin: 0 !important;
                 padding: 0 !important;
-                background: white !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                background: #ffffff !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
+
+            #barcode-print-mount {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+            }
+
             .print-page-unit {
                 box-sizing: border-box !important;
                 page-break-after: always !important;
                 break-after: page !important;
                 transform: translate(${offsetX}mm, ${offsetY}mm) !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                background: #ffffff !important;
             }
+
             .print-page-unit:last-child {
                 page-break-after: auto !important;
                 break-after: auto !important;

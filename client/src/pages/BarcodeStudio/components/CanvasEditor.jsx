@@ -130,6 +130,16 @@ const CanvasEditor = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: `${gapHPx * zoom}px` }}>
                     {Array.from({ length: layoutCols }).map((_, colIdx) => {
                         const isMainEditor = colIdx === 0;
+                        let extraX = 0;
+                        let extraY = 0;
+
+                        if (colIdx === 1) {
+                            extraX = preset.page_layout?.col2OffsetX || 0;
+                            extraY = preset.page_layout?.col2OffsetY || 0;
+                        } else if (colIdx === 2) {
+                            extraX = preset.page_layout?.col3OffsetX || 0;
+                            extraY = preset.page_layout?.col3OffsetY || 0;
+                        }
 
                         return (
                             <div
@@ -141,8 +151,11 @@ const CanvasEditor = ({
                                     height: `${canvasHeightPx}px`,
                                     transform: `scale(${zoom})`,
                                     borderRadius: `${preset.corner_radius || 0}mm`,
-                                    opacity: isMainEditor ? 1 : 0.85,
-                                    position: 'relative'
+                                    opacity: isMainEditor ? 1 : 0.88,
+                                    position: 'relative',
+                                    left: extraX ? `${extraX * MM_TO_PX * zoom}px` : '0px',
+                                    top: extraY ? `${extraY * MM_TO_PX * zoom}px` : '0px',
+                                    transition: 'left 0.05s ease-out, top 0.05s ease-out'
                                 }}
                             >
                                 {isMainEditor && showGrid && <div className="canvas-grid-lines" />}
@@ -180,22 +193,27 @@ const CanvasEditor = ({
                                             {el.type === 'text' && (
                                                 <div
                                                     style={{
-                                                        width: '100%',
+                                                        width: el.autoWidth ? 'auto' : '100%',
+                                                        minWidth: el.autoWidth ? 'max-content' : '100%',
                                                         height: '100%',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
                                                         fontFamily: el.fontFamily || 'sans-serif',
                                                         fontSize: `${el.fontSize || 10}pt`,
-                                                        fontWeight: el.fontWeight || 'normal',
+                                                        fontWeight: el.fontWeight || 'bold',
                                                         fontStyle: el.fontStyle || 'normal',
                                                         textDecoration: el.textDecoration || 'none',
                                                         color: el.color || '#000000',
                                                         letterSpacing: `${el.letterSpacing || 0}px`,
                                                         lineHeight: el.lineHeight || 1.1,
                                                         whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis'
+                                                        overflow: el.autoWidth ? 'visible' : 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : 'none',
+                                                        borderRadius: `${el.borderRadius || 0}px`,
+                                                        padding: el.padding ? `${el.padding * MM_TO_PX}px` : 0,
+                                                        boxSizing: 'border-box'
                                                     }}
                                                 >
                                                     {resolvedText || 'Sample Text'}
@@ -204,11 +222,38 @@ const CanvasEditor = ({
 
                                             {/* BARCODE ELEMENT */}
                                             {el.type === 'barcode' && (
-                                                <img
-                                                    src={generateBarcodeDataUrl(resolvedText, el.format || 'code128', { showText: el.showText, height: 12 })}
-                                                    alt="barcode"
-                                                    style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
-                                                />
+                                                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                                                    <img
+                                                        src={generateBarcodeDataUrl(resolvedText, el.format || 'code128', {
+                                                            showText: false,
+                                                            barHeight: el.barHeight || 12,
+                                                            color: el.color || '#000000',
+                                                            scale: 4
+                                                        })}
+                                                        alt="barcode"
+                                                        style={{ width: '100%', flex: 1, maxHeight: `${el.barHeight || 12}mm`, objectFit: 'contain', pointerEvents: 'none' }}
+                                                    />
+                                                    {el.showText !== false && (
+                                                        <div
+                                                            style={{
+                                                                marginTop: `${el.textMargin ?? 2}pt`,
+                                                                fontSize: `${el.textSize || 10}pt`,
+                                                                fontWeight: el.textWeight === 'black' ? 900 : el.textWeight === 'extrabold' ? 800 : el.textWeight === 'semibold' ? 600 : el.textWeight === 'medium' ? 500 : el.textWeight === 'normal' ? 400 : 700,
+                                                                fontFamily: el.textFont === 'OCR-B' ? 'monospace, "Courier New", sans-serif' : el.textFont === 'Courier' ? 'monospace' : el.textFont || 'sans-serif',
+                                                                color: el.color || '#000000',
+                                                                textAlign: 'center',
+                                                                whiteSpace: 'nowrap',
+                                                                lineHeight: 1.1,
+                                                                letterSpacing: '0.5px',
+                                                                width: '100%',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis'
+                                                            }}
+                                                        >
+                                                            {resolvedText || '123456789'}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
 
                                             {/* QR CODE ELEMENT */}

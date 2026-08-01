@@ -35,6 +35,9 @@ router.get('/presets', verifyToken, async (req, res) => {
 // GET /api/barcode/presets/:id - Get single preset details
 router.get('/presets/:id', verifyToken, async (req, res) => {
     try {
+        if (isNaN(Number(req.params.id))) {
+            return res.status(404).json({ message: 'Preset not found' });
+        }
         const [rows] = await db.query('SELECT * FROM barcode_presets WHERE id = ?', [req.params.id]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Preset not found' });
@@ -63,8 +66,8 @@ router.post('/presets', verifyToken, async (req, res) => {
             await db.query('UPDATE barcode_presets SET is_default = 0');
         }
 
-        const layoutStr = JSON.stringify(page_layout || {});
-        const canvasStr = JSON.stringify(canvas_data || []);
+        const layoutStr = typeof page_layout === 'string' ? page_layout : JSON.stringify(page_layout || {});
+        const canvasStr = typeof canvas_data === 'string' ? canvas_data : JSON.stringify(canvas_data || []);
 
         const [result] = await db.query(`
             INSERT INTO barcode_presets
@@ -89,7 +92,7 @@ router.post('/presets', verifyToken, async (req, res) => {
     }
 });
 
-// PUT /api/barcode/presets/:id - Update preset
+// PUT /api/barcode/presets/:id - Update preset (or insert if built-in string ID)
 router.put('/presets/:id', verifyToken, async (req, res) => {
     const { name, category, is_default, is_favorite, label_width, label_height, paper_type, page_layout, canvas_data } = req.body;
 
@@ -98,29 +101,52 @@ router.put('/presets/:id', verifyToken, async (req, res) => {
             await db.query('UPDATE barcode_presets SET is_default = 0');
         }
 
-        const layoutStr = JSON.stringify(page_layout || {});
-        const canvasStr = JSON.stringify(canvas_data || []);
+        const layoutStr = typeof page_layout === 'string' ? page_layout : JSON.stringify(page_layout || {});
+        const canvasStr = typeof canvas_data === 'string' ? canvas_data : JSON.stringify(canvas_data || []);
 
-        await db.query(`
-            UPDATE barcode_presets SET
-            name = ?, category = ?, is_default = ?, is_favorite = ?,
-            label_width = ?, label_height = ?, paper_type = ?,
-            page_layout = ?, canvas_data = ?
-            WHERE id = ?
-        `, [
-            name,
-            category || 'Product Barcode',
-            is_default ? 1 : 0,
-            is_favorite ? 1 : 0,
-            label_width,
-            label_height,
-            paper_type,
-            layoutStr,
-            canvasStr,
-            req.params.id
-        ]);
+        const isNumericId = !isNaN(Number(req.params.id));
 
-        res.json({ message: 'Preset updated successfully', id: req.params.id });
+        if (isNumericId) {
+            await db.query(`
+                UPDATE barcode_presets SET
+                name = ?, category = ?, is_default = ?, is_favorite = ?,
+                label_width = ?, label_height = ?, paper_type = ?,
+                page_layout = ?, canvas_data = ?
+                WHERE id = ?
+            `, [
+                name,
+                category || 'Product Barcode',
+                is_default ? 1 : 0,
+                is_favorite ? 1 : 0,
+                label_width,
+                label_height,
+                paper_type,
+                layoutStr,
+                canvasStr,
+                req.params.id
+            ]);
+
+            res.json({ message: 'Preset updated successfully', id: req.params.id });
+        } else {
+            // Built-in preset with string ID saved by user: create as new custom preset
+            const [result] = await db.query(`
+                INSERT INTO barcode_presets
+                (name, category, is_default, is_favorite, label_width, label_height, paper_type, page_layout, canvas_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                name,
+                category || 'Product Barcode',
+                is_default ? 1 : 0,
+                is_favorite ? 1 : 0,
+                label_width || 50.00,
+                label_height || 25.00,
+                paper_type || 'thermal',
+                layoutStr,
+                canvasStr
+            ]);
+
+            res.json({ message: 'Preset saved successfully as custom preset', id: result.insertId });
+        }
     } catch (err) {
         console.error('PUT /api/barcode/presets/:id error:', err);
         res.status(500).json({ message: err.message });
@@ -130,6 +156,9 @@ router.put('/presets/:id', verifyToken, async (req, res) => {
 // DELETE /api/barcode/presets/:id - Delete preset
 router.delete('/presets/:id', verifyToken, async (req, res) => {
     try {
+        if (isNaN(Number(req.params.id))) {
+            return res.json({ message: 'Built-in preset skipped' });
+        }
         await db.query('DELETE FROM barcode_presets WHERE id = ?', [req.params.id]);
         res.json({ message: 'Preset deleted successfully' });
     } catch (err) {
