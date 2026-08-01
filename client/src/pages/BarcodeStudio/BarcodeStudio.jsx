@@ -219,6 +219,10 @@ const BarcodeStudio = () => {
         if (selectedElementId === id) setSelectedElementId(null);
     };
 
+    const handleReorderElements = (reorderedElements) => {
+        updateCanvasElements(reorderedElements);
+    };
+
     const handleUndo = () => {
         if (historyIndex > 0) {
             setHistoryIndex(historyIndex - 1);
@@ -298,22 +302,26 @@ const BarcodeStudio = () => {
             />
 
             {/* Mode Selector Tabs */}
-            <div style={{ padding: '0.5rem 1.25rem', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="studio-mode-row">
                 <div className="studio-nav-tabs">
                     <button
                         type="button"
                         className={`studio-tab-btn ${mode === 'designer' ? 'active' : ''}`}
                         onClick={() => setMode('designer')}
                     >
-                        Designer Canvas
+                        🎨 Designer Canvas
                     </button>
                     <button
                         type="button"
                         className={`studio-tab-btn ${mode === 'queue' ? 'active' : ''}`}
                         onClick={() => setMode('queue')}
                     >
-                        Print Batch Queue ({queue.reduce((acc, i) => acc + (parseInt(i.printQty) || 0), 0)})
+                        🖨️ Print Batch Queue ({queue.reduce((acc, i) => acc + (parseInt(i.printQty) || 0), 0)})
                     </button>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                    Preset: <strong style={{ color: '#94a3b8' }}>{activePreset.name}</strong>
+                    {' · '}{activePreset.label_width}×{activePreset.label_height}mm
                 </div>
             </div>
 
@@ -329,6 +337,7 @@ const BarcodeStudio = () => {
                         onMoveLayer={handleMoveLayer}
                         onToggleLock={handleToggleLock}
                         onDeleteElement={handleDeleteElement}
+                        onReorderElements={handleReorderElements}
                     />
 
                     <CanvasEditor

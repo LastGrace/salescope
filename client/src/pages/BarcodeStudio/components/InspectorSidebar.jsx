@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sliders, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Eye, Lock, Layers } from 'lucide-react';
+import { Sliders, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Eye, Layers, Info } from 'lucide-react';
 
 const InspectorSidebar = ({
     preset,
@@ -37,12 +37,17 @@ const InspectorSidebar = ({
                             onChange={(e) => onUpdatePreset({ category: e.target.value })}
                         >
                             <option value="Product Barcode">Product Barcode</option>
-                            <option value="Jewellery Label">Jewellery Label</option>
+                            <option value="Jewellery">Jewellery Tag</option>
                             <option value="Price Tag">Price Tag</option>
                             <option value="Shelf Label">Shelf Label</option>
-                            <option value="QR Label">QR Label</option>
+                            <option value="QR Labels">QR Label</option>
                             <option value="Shipping Label">Shipping Label</option>
-                            <option value="Fashion Tag">Fashion Tag</option>
+                            <option value="Fashion & Apparel">Fashion Tag</option>
+                            <option value="Pharmacy">Pharmacy</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="A4 Sheets">A4 Sheet Label</option>
+                            <option value="Thermal 1-Up">Thermal Single (1-Up)</option>
+                            <option value="Thermal 2-Up (TSC)">Thermal 2-Up (TSC 83mm)</option>
                         </select>
                     </div>
 
@@ -86,7 +91,7 @@ const InspectorSidebar = ({
                 {preset.paper_type === 'thermal' && (
                     <div className="inspector-section">
                         <div className="inspector-title">
-                            <Layers size={16} className="text-primary" />
+                            <Layers size={14} className="text-primary" />
                             <span>Stickers Per Row (Roll Layout)</span>
                         </div>
 
@@ -105,16 +110,18 @@ const InspectorSidebar = ({
                                     if (mode === '2up') {
                                         cols = 2;
                                         if (!gapH) gapH = 3;
-                                        if (!marginLeft) marginLeft = 2;
-                                        if (!marginRight) marginRight = 2;
-                                    } else if (mode === '3up') {
-                                        cols = 3;
-                                        if (!gapH) gapH = 2;
                                         if (!marginLeft) marginLeft = 2.5;
                                         if (!marginRight) marginRight = 2.5;
+                                    } else if (mode === '3up') {
+                                        cols = 3;
+                                        if (!gapH) gapH = 2.5;
+                                        if (!marginLeft) marginLeft = 2;
+                                        if (!marginRight) marginRight = 2;
                                     } else if (mode === '4up') {
                                         cols = 4;
                                         if (!gapH) gapH = 2;
+                                        if (!marginLeft) marginLeft = 1.5;
+                                        if (!marginRight) marginRight = 1.5;
                                     }
 
                                     onUpdatePreset({
@@ -122,23 +129,24 @@ const InspectorSidebar = ({
                                     });
                                 }}
                             >
-                                <option value="1up">1-Up (Single Label per Row)</option>
-                                <option value="2up">2-Up (2 Labels per Row — e.g. TSC TE244 83mm)</option>
-                                <option value="3up">3-Up (3 Labels per Row — e.g. Grocery 105mm)</option>
-                                <option value="4up">4-Up (4 Labels per Row)</option>
+                                <option value="1up">1-Up — Single sticker per row</option>
+                                <option value="2up">2-Up — 2 stickers per row (TSC 83mm)</option>
+                                <option value="3up">3-Up — 3 stickers per row (105mm)</option>
+                                <option value="4up">4-Up — 4 stickers per row (120mm)</option>
                             </select>
                         </div>
 
-                        {(layout.cols > 1 || layout.mode === '2up' || layout.mode === '3up') && (
+                        {(layout.cols > 1 || layout.mode === '2up' || layout.mode === '3up' || layout.mode === '4up') && (
                             <>
                                 <div className="prop-row">
                                     <div className="prop-group">
-                                        <label>Gap Between Stickers (mm)</label>
+                                        <label>Gap Between (mm)</label>
                                         <input
                                             type="number"
                                             step="0.5"
+                                            min="0"
                                             className="prop-input"
-                                            value={layout.gapH || 3}
+                                            value={layout.gapH ?? 3}
                                             onChange={(e) => onUpdatePreset({ page_layout: { ...layout, gapH: parseFloat(e.target.value) || 0 } })}
                                         />
                                     </div>
@@ -147,8 +155,9 @@ const InspectorSidebar = ({
                                         <input
                                             type="number"
                                             step="0.5"
+                                            min="0"
                                             className="prop-input"
-                                            value={layout.marginLeft || 2}
+                                            value={layout.marginLeft ?? 2.5}
                                             onChange={(e) => {
                                                 const val = parseFloat(e.target.value) || 0;
                                                 onUpdatePreset({ page_layout: { ...layout, marginLeft: val, marginRight: val } });
@@ -157,14 +166,12 @@ const InspectorSidebar = ({
                                     </div>
                                 </div>
 
-                                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.65rem 0.75rem', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)', marginTop: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#60a5fa' }}>Calculated Total Roll Width</div>
-                                    <div style={{ fontSize: '0.95rem', fontWeight: 800, marginTop: '2px' }}>
-                                        {((layout.cols || 2) * (preset.label_width || 38)) + (((layout.cols || 2) - 1) * (layout.gapH || 3)) + (layout.marginLeft || 2) + (layout.marginRight || 2)} mm
+                                <div className="inspector-info-box">
+                                    <div className="info-title">📏 Calculated Roll Width</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#f1f5f9', margin: '3px 0' }}>
+                                        {((layout.cols || 2) * (preset.label_width || 38)) + (((layout.cols || 2) - 1) * (layout.gapH || 3)) + (layout.marginLeft || 2.5) + (layout.marginRight || 2.5)} mm
                                     </div>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                        Set your printer driver paper width to this total width.
-                                    </div>
+                                    <div style={{ color: '#7dd3fc' }}>Set this as your printer driver paper width.</div>
                                 </div>
                             </>
                         )}
