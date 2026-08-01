@@ -360,13 +360,13 @@ const QuickAddProduct = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn" onClick={addRow} style={{ border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button className="btn" onClick={addRow} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)' }}>
                             <Plus size={16} /> Add Row
                         </button>
-                        <button className="btn" onClick={handlePrintAll} style={{ border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button className="btn" onClick={handlePrintAll} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)' }}>
                             <Printer size={16} /> Print All Barcodes
                         </button>
-                        <button className="btn btn-primary" onClick={handleSaveAll} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button className="btn btn-primary" onClick={handleSaveAll} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--primary)', color: '#ffffff', border: '1px solid var(--primary)', fontWeight: 700 }}>
                             <Save size={16} /> Add All to Inventory
                         </button>
                     </div>

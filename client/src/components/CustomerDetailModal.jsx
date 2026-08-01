@@ -172,7 +172,7 @@ const CustomerDetailModal = ({ customer, onClose, onUpdate }) => {
                                 activeTab === 'credit' ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                         <div>
-                                            <h4 style={{ color: '#be123c', borderBottom: '1px solid #fecdd3', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Pending / Partial Bills</h4>
+                                            <h4 style={{ color: '#ef4444', borderBottom: '1px solid rgba(239, 68, 68, 0.3)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Pending / Partial Bills</h4>
                                             <table className="table" style={{ fontSize: '0.9rem' }}>
                                                 <thead><tr style={{ background: 'var(--bg-main)' }}><th>ID</th><th>Date</th><th style={{ textAlign: 'right' }}>Amount</th><th>Status</th><th>Actions</th></tr></thead>
                                                 <tbody>
@@ -193,7 +193,7 @@ const CustomerDetailModal = ({ customer, onClose, onUpdate }) => {
                                             </table>
                                         </div>
                                         <div>
-                                            <h4 style={{ color: '#15803d', borderBottom: '1px solid #bbf7d0', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Paid Credit History</h4>
+                                            <h4 style={{ color: '#22c55e', borderBottom: '1px solid rgba(34, 197, 94, 0.3)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Paid Credit History</h4>
                                             <table className="table" style={{ fontSize: '0.9rem' }}>
                                                 <thead><tr style={{ background: 'var(--bg-main)' }}><th>ID</th><th>Date</th><th style={{ textAlign: 'right' }}>Total</th><th>Status</th><th>Actions</th></tr></thead>
                                                 <tbody>

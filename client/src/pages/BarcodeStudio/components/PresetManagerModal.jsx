@@ -3,7 +3,7 @@ import { X, Star, Check, Copy, Trash2, Download, Upload, Sparkles, Search, Tag, 
 import toast from 'react-hot-toast';
 
 // ─── Built-in Template Definitions ────────────────────────────────────────────
-const BUILTIN_TEMPLATES = [
+export const BUILTIN_TEMPLATES = [
     // ─── TSC 83mm 2-Up Templates ──────────────────────────────────────────
     {
         id: 'builtin-tsc-2up-standard',
@@ -466,7 +466,7 @@ const PresetManagerModal = ({
         return matchesCat && matchesSearch;
     });
 
-    const handleExport = (preset) => {
+    const handleExport = async (preset) => {
         if (!preset) return;
         const exportData = {
             name: preset.name || 'Exported Barcode Template',
@@ -489,11 +489,37 @@ const PresetManagerModal = ({
         };
 
         const jsonStr = JSON.stringify(exportData, null, 2);
+        const fileName = `${(preset.name || 'barcode_template').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_preset.json`;
+
+        // 1. Try OS Save File Dialog (Chrome/Edge/Brave/Opera File System Access API)
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [{
+                        description: 'JSON Template File',
+                        accept: { 'application/json': ['.json'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(jsonStr);
+                await writable.close();
+                toast.success(`Exported "${preset.name}" as JSON file!`);
+                return;
+            } catch (err) {
+                // If user clicks Cancel in the OS file picker dialog, exit gracefully
+                if (err.name === 'AbortError') {
+                    return;
+                }
+            }
+        }
+
+        // 2. Fallback to automatic browser download if showSaveFilePicker is not supported or blocked
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${(preset.name || 'barcode_template').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_preset.json`;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

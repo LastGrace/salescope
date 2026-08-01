@@ -6,8 +6,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
     CreditCard, Package, Wallet, Ban, Ticket, Users,
     Star, RotateCcw, Folder, FileText,
-    Database, Settings, ShoppingCart, TrendingUp, ChartNoAxesCombined, Plus, Smartphone, Truck, Rocket,
-    Store, History, Info, Globe, Mail, X, ExternalLink, Shield
+    Database, Settings, ShoppingCart, TrendingUp, ChartNoAxesCombined, Plus, Smartphone, Truck,
+    Store, History, Info
 } from 'lucide-react';
 
 import '../styles/Dashboard.css';
@@ -16,17 +16,10 @@ import '../styles/Modal.css';
 import WhatsAppConnectionBtn from '../components/WhatsAppConnectionBtn';
 import ShortcutModal from '../components/ShortcutModal';
 
-// Skeleton Loader Component
-const DashboardSkeleton = () => (
-    <div className="animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-            {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-24 bg-gray-200 rounded-xl"></div>
-            ))}
-        </div>
-    </div>
-);
+import DashboardSkeleton from '../components/dashboard/DashboardSkeleton';
+import AboutModal from '../components/dashboard/AboutModal';
+import QuickLaunchGrid from '../components/dashboard/QuickLaunchGrid';
+import ManagementGrid from '../components/dashboard/ManagementGrid';
 
 const Dashboard = () => {
     const { token, hasPermission } = useAuth();
@@ -97,7 +90,6 @@ const Dashboard = () => {
         return () => clearInterval(pollInterval);
     }, [token, hasPermission, fetchStatusData]);
 
-
     if (!hasPermission('dashboard.view')) {
         return (
             <div className="state-empty access-restricted-container">
@@ -108,26 +100,8 @@ const Dashboard = () => {
         );
     }
 
-
     const [showShortcutModal, setShowShortcutModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
-    const [aboutTab, setAboutTab] = useState('website'); // 'website' or 'email'
-
-    // Open links in default system browser (Electron support)
-    const openExternal = (url) => {
-        if (window.electron?.shell?.openExternal) {
-            window.electron.shell.openExternal(url);
-        } else if (window.require) {
-            try {
-                const { shell } = window.require('electron');
-                shell.openExternal(url);
-            } catch (e) {
-                window.open(url, '_blank');
-            }
-        } else {
-            window.open(url, '_blank');
-        }
-    };
 
     return (
         <div className="dashboard-container">
@@ -145,8 +119,6 @@ const Dashboard = () => {
                     <h1>{storeSettings?.store_name || 'Dashboard'}</h1>
                     <p>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
-
-
 
                 {/* Header Actions */}
                 <div className="dashboard-header-actions">
@@ -172,7 +144,6 @@ const Dashboard = () => {
                                 <span>Backup</span>
                             </div>
                         </div>
-
                     </div>
 
                     {/* POS Button */}
@@ -185,42 +156,14 @@ const Dashboard = () => {
 
             {/* Quick Access Hub */}
             <div className={`dashboard-content-wrapper ${refreshing ? 'refreshing' : ''}`}>
-
-
-                {/* Quick Launch Section */}
-                <h2 className="dashboard-section-title"><Rocket size={20} /> Quick Launch</h2>
-                <div className="hub-grid hub-grid-quick">
-                    {quickLaunchItems.map((item, idx) => {
-                        const Icon = item.icon;
-                        if (item.permission && !hasPermission(item.permission)) return null;
-
-                        return (
-                            <Link key={idx} to={item.path} className="hub-card hub-card-quick">
-                                <div className={`hub-icon ${item.color} hub-icon-circle`}>
-                                    <Icon size={22} />
-                                </div>
-                                <span>{item.label}</span>
-                            </Link>
-                        );
-                    })}
-                </div>
-
-                <h2 className="dashboard-section-title"><Settings size={20} /> Systems & Management</h2>
-                <div className="hub-grid hub-grid-mgmt">
-                    {hubItems.map((item, idx) => {
-                        const Icon = item.icon;
-                        if (!hasPermission(item.permission)) return null;
-
-                        return (
-                            <Link key={idx} to={item.path} className="hub-card">
-                                <div className={`hub-icon ${item.color} hub-icon-circle`}>
-                                    <Icon size={20} />
-                                </div>
-                                <span>{item.label}</span>
-                            </Link>
-                        );
-                    })}
-                </div>
+                {loading ? (
+                    <DashboardSkeleton />
+                ) : (
+                    <>
+                        <QuickLaunchGrid quickLaunchItems={quickLaunchItems} hasPermission={hasPermission} />
+                        <ManagementGrid hubItems={hubItems} hasPermission={hasPermission} />
+                    </>
+                )}
             </div>
 
             {/* Bottom Action Bar */}
@@ -248,89 +191,8 @@ const Dashboard = () => {
             )}
 
             {showAboutModal && (
-                <div className="modal-overlay" onClick={() => setShowAboutModal(false)}>
-                    <div className="about-modal" onClick={e => e.stopPropagation()}>
-                        <button className="about-close-btn" onClick={() => setShowAboutModal(false)}>
-                            <X size={18} />
-                        </button>
-                        <div className="about-header">
-                            <img
-                                src="/Salescope.png"
-                                alt="Salescope"
-                                className="about-logo"
-                            />
-                            <h2>Salescope</h2>
-                            <p className="about-version">Retail Management System</p>
-                            
-                            {/* License Status Badge */}
-                            {licenseStatus && (
-                                <div 
-                                    className={`about-license-badge ${licenseStatus.status === 'licensed' ? 'active' : 'inactive'}`}
-                                    onClick={() => navigate('/activation')}
-                                    style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', background: licenseStatus.status === 'licensed' ? '#dcfce7' : '#fee2e2', color: licenseStatus.status === 'licensed' ? '#166534' : '#991b1b', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}
-                                    title="Click to manage license"
-                                >
-                                    <Shield size={14} />
-                                    <span>
-                                        {licenseStatus.status === 'licensed'
-                                            ? `License: ${licenseStatus.daysLeft !== null && licenseStatus.daysLeft !== undefined ? `${licenseStatus.daysLeft} Days Left` : 'Active'}`
-                                            : 'License Not Active'}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="about-tabs">
-                            <button
-                                className={`about-tab ${aboutTab === 'website' ? 'active' : ''}`}
-                                onClick={() => setAboutTab('website')}
-                            >
-                                <Globe size={16} />
-                                Website
-                            </button>
-                            <button
-                                className={`about-tab ${aboutTab === 'email' ? 'active' : ''}`}
-                                onClick={() => setAboutTab('email')}
-                            >
-                                <Mail size={16} />
-                                Email
-                            </button>
-                        </div>
-
-                        <div className="about-tab-content">
-                            {aboutTab === 'website' ? (
-                                <div className="about-content-card" onClick={() => openExternal('https://salescope.software')}>
-                                    <div className="about-content-icon">
-                                        <Globe size={32} />
-                                    </div>
-                                    <div className="about-content-details">
-                                        <h3>Official Website</h3>
-                                        <p>salescope.software</p>
-                                    </div>
-                                    <ExternalLink size={18} className="about-content-arrow" />
-                                </div>
-                            ) : (
-                                <div className="about-content-card" onClick={() => openExternal('mailto:salescopepos@gmail.com')}>
-                                    <div className="about-content-icon">
-                                        <Mail size={32} />
-                                    </div>
-                                    <div className="about-content-details">
-                                        <h3>Support Email</h3>
-                                        <p>salescopepos@gmail.com</p>
-                                    </div>
-                                    <ExternalLink size={18} className="about-content-arrow" />
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="about-footer">
-                            <p>© {new Date().getFullYear()} Salescope. All rights reserved.</p>
-                        </div>
-                    </div>
-                </div>
+                <AboutModal onClose={() => setShowAboutModal(false)} licenseStatus={licenseStatus} />
             )}
-
-
         </div>
     );
 };

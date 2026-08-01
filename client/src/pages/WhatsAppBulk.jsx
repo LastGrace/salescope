@@ -3,7 +3,6 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Send, Upload, Smartphone, CheckCircle, XCircle, Loader, FileText, MessageSquare, StopCircle, RefreshCw } from 'lucide-react';
 import '../styles/WhatsAppBulk.css';
-import '../styles/Dashboard.css';
 import WhatsAppConnectionBtn from '../components/WhatsAppConnectionBtn';
 
 const POLL_INTERVAL = 2000; // ms

@@ -5,35 +5,18 @@ import { useAuth } from '../context/AuthContext';
 import {
     IndianRupee, ShoppingCart, Percent, AlertTriangle,
     CreditCard, LayoutDashboard, TrendingUp, Package, Wallet,
-    Ban, Ticket, Users, ArrowDownCircle, BarChart3,
-    MessageSquare, Star, Eye, Activity
+    Ban, Ticket, Users, ArrowDownCircle, BarChart3, Activity
 } from 'lucide-react';
 
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-
-import KPICard from '../components/dashboard/KPICard';
-import '../styles/Statistics.css';
-import '../styles/Modal.css';
+import KPICard from '../components/statistics/KPICard';
+import SalesChart from '../components/statistics/SalesChart';
+import StatisticsSkeleton from '../components/statistics/StatisticsSkeleton';
+import CustomRangePicker from '../components/statistics/CustomRangePicker';
+import StrategicInsights from '../components/statistics/StrategicInsights';
 
 import CustomerDetailModal from '../components/CustomerDetailModal';
-import SalesChart from '../components/dashboard/SalesChart';
-import InventoryWidgets from '../components/dashboard/InventoryWidgets';
-
-// Skeleton Loader Component
-const StatisticsSkeleton = () => (
-    <div className="animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
-            ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 h-96 bg-gray-200 rounded-xl"></div>
-            <div className="h-96 bg-gray-200 rounded-xl"></div>
-        </div>
-    </div>
-);
+import '../styles/Statistics.css';
+import '../styles/Modal.css';
 
 const Statistics = () => {
     const { token, hasPermission } = useAuth();
@@ -145,77 +128,17 @@ const Statistics = () => {
             </div>
 
             {activeTab === 'range' && (
-                <div className="custom-range-card">
-                    <div className="custom-range-header">
-                        <span className="custom-range-label">Filter Analytics</span>
-                        <h3 className="card-title-lg m-0">Custom Date Range</h3>
-                    </div>
-
-                    <div className="custom-range-controls">
-                        <div className="date-input-group">
-                            <label>Start Date</label>
-                            <input
-                                type="date"
-                                className="input"
-                                value={customRange.start || ''}
-                                onChange={e => setCustomRange({ ...customRange, start: e.target.value })}
-                            />
-                        </div>
-                        <span className="text-muted font-bold">→</span>
-                        <div className="date-input-group">
-                            <label>End Date</label>
-                            <input
-                                type="date"
-                                className="input"
-                                value={customRange.end || ''}
-                                onChange={e => setCustomRange({ ...customRange, end: e.target.value })}
-                            />
-                        </div>
-                        <button
-                            className="btn btn-primary"
-                            style={{ padding: '0.7rem 1.5rem', borderRadius: '8px', fontWeight: '600' }}
-                            onClick={() => setAppliedCustomRange(customRange)}
-                            disabled={!customRange.start || !customRange.end}
-                        >
-                            Apply Filter
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'insights' && (
-                <div className="custom-range-card" style={{ padding: '1rem 1.5rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className="custom-range-label" style={{ margin: 0 }}>Insight Timeframe</span>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button
-                            className={`btn ${dateRange === '7days' ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                            onClick={() => setDateRange('7days')}>1 Week
-                        </button>
-                        <button
-                            className={`btn ${dateRange === 'this_month' ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                            onClick={() => setDateRange('this_month')}>1 Month
-                        </button>
-                        <button
-                            className={`btn ${dateRange === '3months' ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                            onClick={() => setDateRange('3months')}>3 Months
-                        </button>
-                        <button
-                            className={`btn ${dateRange === '6months' ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                            onClick={() => setDateRange('6months')}>6 Months
-                        </button>
-                    </div>
-                </div>
+                <CustomRangePicker
+                    customRange={customRange}
+                    setCustomRange={setCustomRange}
+                    onApply={() => setAppliedCustomRange(customRange)}
+                />
             )}
 
             {loading ? (
                 <StatisticsSkeleton />
             ) : (
                 <Suspense fallback={<StatisticsSkeleton />}>
-
                     {/* ONLY SHOW PERFORMANCE & STATS IF NOT ON INSIGHTS TAB */}
                     {activeTab !== 'insights' && (
                         <>
@@ -337,217 +260,20 @@ const Statistics = () => {
                                     subtext="Unredeemed Points"
                                 />
                             </div>
-
                         </>
                     )}
 
                     {/* INSIGHTS TAB ONLY */}
                     {activeTab === 'insights' && (
-                        <Suspense fallback={<div className="h-96 bg-gray-200 rounded-xl animate-pulse mt-4"></div>}>
-
-                            {/* Existing Customer Analytics Row */}
-                            <div className="widgets-grid" style={{ marginTop: '1.5rem' }}>
-                                {/* Repeat Customers Table */}
-                                <div className="dashboard-card" style={{ maxHeight: '450px' }}>
-                                    <h3 className="card-title-lg mb-4">Repeat Customers ({dateRange})</h3>
-                                    <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
-                                        <table className="products-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Customer</th>
-                                                    <th className="val-right">Bills</th>
-                                                    <th className="val-right">Total Spent</th>
-                                                    <th className="val-right">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {customerData.repeat_customers?.slice(0, 50).map((c, i) => (
-                                                    <tr key={i}>
-                                                        <td className="text-primary">
-                                                            <div className="font-bold">{c.name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</div>
-                                                        </td>
-                                                        <td className="val-right font-bold">{c.order_count}</td>
-                                                        <td className="val-right text-primary font-bold">₹{Number(c.total_spent || 0).toLocaleString('en-IN')}</td>
-                                                        <td className="val-right">
-                                                            <button className="btn-icon" onClick={() => setSelectedCustomer(c)}>
-                                                                <Eye size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        {(!customerData.repeat_customers || customerData.repeat_customers.length === 0) && (
-                                            <div className="state-empty">No repeat customers found</div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Top Spenders Table */}
-                                <div className="dashboard-card" style={{ maxHeight: '450px' }}>
-                                    <h3 className="card-title-lg mb-4">Top Spenders ({dateRange})</h3>
-                                    <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
-                                        <table className="products-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Customer</th>
-                                                    <th className="val-right">Bills</th>
-                                                    <th className="val-right">Total Spent</th>
-                                                    <th className="val-right">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {customerData.top_spenders?.slice(0, 50).map((c, i) => (
-                                                    <tr key={i}>
-                                                        <td className="text-primary">
-                                                            <div className="font-bold">{c.name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</div>
-                                                        </td>
-                                                        <td className="val-right">{c.order_count}</td>
-                                                        <td className="val-right font-bold text-primary">₹{Number(c.total_spent || 0).toLocaleString('en-IN')}</td>
-                                                        <td className="val-right">
-                                                            <button className="btn-icon" onClick={() => setSelectedCustomer(c)}>
-                                                                <Eye size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        {(!customerData.top_spenders || customerData.top_spenders.length === 0) && (
-                                            <div className="state-empty">No spending data found</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Inventory Alerts & Top Products */}
-                            <div className="charts-grid" style={{ marginTop: '1.5rem' }}>
-                                <InventoryWidgets
-                                    lowStock={inventoryData.low_stock_items}
-                                    outOfStockCount={inventoryData.out_of_stock_count}
-                                    fastMoving={inventoryData.fast_moving}
-                                />
-                                <div className="dashboard-card" style={{ maxHeight: '450px' }}>
-                                    <h3 className="card-title-lg mb-4">Top Performing Products</h3>
-                                    <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
-                                        <table className="products-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Product</th>
-                                                    <th className="val-right">Sold</th>
-                                                    <th className="val-right">Revenue</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {salesData.top_products?.slice(0, 50).map((p, i) => (
-                                                    <tr key={i}>
-                                                        <td>
-                                                            <div className="text-primary font-bold">{p.name}</div>
-                                                            {p.barcode && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.barcode}</div>}
-                                                        </td>
-                                                        <td className="val-right">{p.qty}</td>
-                                                        <td className="val-right text-primary font-bold">₹{Number(p.revenue || 0).toLocaleString('en-IN')}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        {(!salesData.top_products || salesData.top_products.length === 0) && (
-                                            <div className="state-empty">No sales data found</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 5. Advanced Insights: Strategic Growth */}
-                            <h2 className="dashboard-section-title"><Star size={20} /> Strategic Insights</h2>
-                            <div className="widgets-grid">
-                                {/* At-Risk Customers */}
-                                <div className="dashboard-card" style={{ maxHeight: '450px' }}>
-                                    <div className="flex-between mb-4">
-                                        <h3 className="card-title-lg m-0">Re-engage At-Risk Loyalists</h3>
-                                        <span className="badge-danger">30+ Days Dormant</span>
-                                    </div>
-                                    <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
-                                        <table className="products-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Customer</th>
-                                                    <th className="val-right">Last Visit</th>
-                                                    <th className="val-right">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {salesData.at_risk_customers?.slice(0, 50).map((c, i) => (
-                                                    <tr key={i}>
-                                                        <td>
-                                                            <div className="text-primary font-bold">{c.name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.total_bills} bills · ₹{Number(c.lifetime_spend || 0).toLocaleString('en-IN')} total</div>
-                                                        </td>
-                                                        <td className="val-right">
-                                                            <div className="text-red font-bold">{c.days_since} days ago</div>
-                                                            <div style={{ fontSize: '0.7rem' }}>{new Date(c.last_visit).toLocaleDateString()}</div>
-                                                        </td>
-                                                        <td className="val-right">
-                                                            <button
-                                                                className="btn-icon theme-green"
-                                                                title="Send WhatsApp"
-                                                                onClick={() => {
-                                                                    const msg = `Hi ${c.name}, we haven't seen you at the store in a while! We miss you. Use code MISSYOU10 for 10% off on your next visit!`;
-                                                                    window.open(`https://wa.me/${c.phone}?text=${encodeURIComponent(msg)}`, '_blank');
-                                                                }}
-                                                            >
-                                                                <MessageSquare size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        {(!salesData.at_risk_customers || salesData.at_risk_customers.length === 0) && (
-                                            <div className="state-empty">Your loyal customers are active!</div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Profitability Leaderboard */}
-                                <div className="dashboard-card" style={{ maxHeight: '450px' }}>
-                                    <h3 className="card-title-lg mb-4">Profitability Leaderboard (Margin %)</h3>
-                                    <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
-                                        <table className="products-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Product</th>
-                                                    <th className="val-right">Margin %</th>
-                                                    <th className="val-right">Profit Contribution</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {salesData.profitable_items?.slice(0, 50).map((p, i) => (
-                                                    <tr key={i}>
-                                                        <td>
-                                                            <div className="text-primary font-bold">{p.name}</div>
-                                                            {p.barcode && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.barcode}</div>}
-                                                        </td>
-                                                        <td className="val-right">
-                                                            <div className="text-green font-bold">{Number(p.avg_margin_percent || 0).toFixed(1)}%</div>
-                                                            <div style={{ fontSize: '0.7rem' }}>Sold: {p.total_qty} units</div>
-                                                        </td>
-                                                        <td className="val-right text-primary font-bold">₹{Number(p.total_profit_contribution || 0).toLocaleString('en-IN')}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        {(!salesData.profitable_items || salesData.profitable_items.length === 0) && (
-                                            <div className="state-empty">Not enough sales data for margin analysis</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </Suspense>
+                        <StrategicInsights
+                            dateRange={dateRange}
+                            setDateRange={setDateRange}
+                            customerData={customerData}
+                            salesData={salesData}
+                            inventoryData={inventoryData}
+                            setSelectedCustomer={setSelectedCustomer}
+                        />
                     )}
-
                 </Suspense>
             )}
 

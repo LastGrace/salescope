@@ -80,7 +80,21 @@ const LivePrintPreviewModal = ({
     const MM_TO_PX = 3.7795;
 
     return (
-        <div className="studio-modal-overlay">
+        <div className="studio-modal-overlay" style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            boxSizing: 'border-box'
+        }}>
             <div className="studio-modal-card" style={{ maxWidth: '1050px', height: '90vh' }}>
                 <div className="studio-modal-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>

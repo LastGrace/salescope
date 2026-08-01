@@ -5,12 +5,12 @@ export const LIGHT_THEMES = [
     { id: 'light-rose', name: 'Rose', color: '#e11d48' },
     { id: 'light-ocean', name: 'Ocean', color: '#0891b2' },
     { id: 'light-emerald', name: 'Emerald', color: '#14b8a6' },
-    { id: 'light-mint', name: 'Mint', color: '#00b894' },
+    { id: 'light-mint', name: 'Sapphire', color: '#0891b2' },
     { id: 'light-slate', name: 'Slate', color: '#475569' },
     { id: 'light-royal', name: 'Royal', color: '#6366f1' },
-    { id: 'light-stone', name: 'Stone', color: '#636e72' },
-    { id: 'light-sunset', name: 'Sunset', color: '#ea580c' },
-    { id: 'light-sky', name: 'Sky', color: '#0984e3' },
+    { id: 'light-stone', name: 'Jade', color: '#16a34a' },
+    { id: 'light-sunset', name: 'Copper', color: '#b45309' },
+    { id: 'light-sky', name: 'Graphite', color: '#4f46e5' },
     { id: 'light-neon', name: 'Neon', color: '#d946ef' },
 ];
 

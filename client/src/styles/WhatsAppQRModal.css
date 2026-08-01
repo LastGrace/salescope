@@ -1,9 +1,10 @@
-/* WhatsApp QR Modal Styles */
+/* WhatsApp QR Modal Styles — Theme Compatible */
 
 .qr-modal-overlay {
     align-items: center;
     padding-top: 2rem;
     padding-bottom: 2rem;
+    background-color: rgba(0, 0, 0, 0.65);
 }
 
 .qr-modal-content {
@@ -13,13 +14,12 @@
     display: flex;
     flex-direction: column;
     max-height: 90vh;
-    /* Limit height to viewport */
     padding: 0;
     border-radius: 1rem;
     overflow: hidden;
-    /* Ensure header/footer radius works */
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
 }
 
 .qr-modal-header {
@@ -27,7 +27,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border);
     background: var(--bg-card);
     flex-shrink: 0;
 }
@@ -38,23 +38,19 @@
     align-items: center;
     gap: 0.5rem;
     margin: 0;
-    font-weight: 600;
-}
-
-.close-btn {
-    padding: 0.4rem;
+    font-weight: 700;
+    color: var(--text-main);
 }
 
 .qr-modal-body {
     padding: 1.5rem;
     overflow-y: auto;
-    /* Enable vertical scrolling */
     flex: 1;
-    /* Take remaining space */
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: var(--bg-page);
+    background: var(--bg-main);
+    color: var(--text-main);
     gap: 1.5rem;
 }
 
@@ -63,7 +59,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     padding: 2rem 0;
 }
 
@@ -75,6 +71,7 @@
 .loading-text {
     font-size: 0.95rem;
     font-weight: 500;
+    color: var(--text-muted);
 }
 
 .qr-display-container {
@@ -86,11 +83,11 @@
 }
 
 .qr-code-box {
-    background: white;
-    padding: 0.75rem;
+    background: #ffffff;
+    padding: 0.85rem;
     border-radius: 0.75rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border);
     display: flex;
     justify-content: center;
 }
@@ -102,14 +99,14 @@
     border-radius: 0.5rem;
     font-size: 0.85rem;
     width: 100%;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
 }
 
 .instructions-title {
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 0.5rem;
-    color: var(--text-primary);
+    color: var(--text-main);
 }
 
 .instructions-list {
@@ -119,6 +116,11 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    color: var(--text-muted);
+}
+
+.instructions-list strong {
+    color: var(--text-main);
 }
 
 .success-container {
@@ -134,11 +136,12 @@
     width: 70px;
     height: 70px;
     border-radius: 50%;
-    background: rgba(16, 173, 92, 0.1);
+    background: rgba(16, 173, 92, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;
     color: #10ad5c;
+    border: 1px solid rgba(16, 173, 92, 0.3);
 }
 
 .success-text {
@@ -146,14 +149,14 @@
 }
 
 .success-title {
-    color: var(--text-primary);
+    color: var(--text-main);
     margin-bottom: 0.25rem;
     font-size: 1.2rem;
     margin-top: 0;
 }
 
 .success-subtitle {
-    color: var(--text-secondary);
+    color: var(--text-muted);
     margin: 0;
     font-size: 0.9rem;
 }
@@ -164,8 +167,9 @@
 }
 
 .error-banner-custom {
-    background: #fef2f2;
-    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
     padding: 0.75rem;
     border-radius: 0.5rem;
     width: 100%;

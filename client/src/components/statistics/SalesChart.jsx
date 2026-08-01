@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    BarChart, Bar, Legend
+    BarChart, Bar
 } from 'recharts';
 
 const SalesChart = ({ data, type = 'area' }) => {
