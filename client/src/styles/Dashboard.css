@@ -33,6 +33,16 @@
     --radius-lg: 0.5rem;
 }
 
+[data-theme^='dark'] {
+    --color-success-light: rgba(34, 197, 94, 0.15);
+    --color-warning-light: rgba(249, 115, 22, 0.15);
+    --color-danger-light: rgba(239, 68, 68, 0.15);
+    --color-purple-light: rgba(168, 85, 247, 0.15);
+    --color-cyan-light: rgba(6, 182, 212, 0.15);
+    --color-indigo-light: rgba(99, 102, 241, 0.15);
+    --color-primary-light: rgba(var(--primary-rgb, 99, 102, 241), 0.15);
+}
+
 
 /* --- Layout --- */
 .dashboard-container {
@@ -100,8 +110,10 @@
     border: 1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.15); /* Soft premium border */
     box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
 }
+[data-theme^='dark'] .dashboard-header,
 .dark-mode .dashboard-header {
-    border: 1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.2);
+    background: linear-gradient(135deg, rgba(var(--primary-rgb, 99, 102, 241), 0.12), rgba(var(--primary-rgb, 99, 102, 241), 0.04));
+    border: 1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.25);
 }
 
 @media (min-width: 768px) {
@@ -361,10 +373,17 @@
     animation: hub-card-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+[data-theme^='dark'] .hub-card,
 .dark-mode .hub-card {
-    background: rgba(var(--bg-card-rgb, 30, 30, 30), 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     box-shadow: 0 4px 15px -5px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+[data-theme^='dark'] .hub-card-quick,
+.dark-mode .hub-card-quick {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
 }
 
 /* Staggered entrance for each card */
@@ -482,8 +501,10 @@
     background: rgba(var(--bg-card-rgb, 255, 255, 255), 0.85);
 }
 
+[data-theme^='dark'] .hub-card:hover,
 .dark-mode .hub-card:hover {
-    background: rgba(var(--bg-card-rgb, 30, 30, 30), 0.75);
+    background: var(--bg-sub);
+    border-color: var(--primary);
 }
 
 .hub-card:active {
@@ -1597,6 +1618,7 @@
     animation: content-fade-in 0.6s ease-out;
 }
 
+[data-theme^='dark'] .license-premium-banner,
 .dark-mode .license-premium-banner {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.03) 100%);
     border-color: rgba(16, 185, 129, 0.3);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Package, TrendingUp } from 'lucide-react';
+import { Package } from 'lucide-react';
 
 const InventoryWidgets = ({ lowStock = [], outOfStockCount = 0, fastMoving = [] }) => {
     return (

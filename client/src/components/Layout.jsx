@@ -6,7 +6,7 @@ import {
     LayoutDashboard, ShoppingCart, Package, Users, Truck, LogOut,
     Menu, Moon, Sun, Plus, CreditCard, FileText, RotateCcw,
     Folder, Smartphone, Database, ChartNoAxesCombined, Orbit,
-    MousePointer2, Hand, TrendingUp, Store, Palette, Settings as SettingsIcon, Barcode
+    MousePointer2, Hand, TrendingUp, Store, Palette, Settings as SettingsIcon, Barcode, Printer
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -144,6 +144,12 @@ const Layout = () => {
                     <NavLink to="/inventory" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Inventory">
                         <Package size={20} /> <span className="nav-text">Inventory</span>
                     </NavLink>
+                    <NavLink to="/barcodes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Barcode Studio">
+                        <Barcode size={20} /> <span className="nav-text">Barcode Studio</span>
+                    </NavLink>
+                    <NavLink to="/barcode-printer" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Barcode Printer">
+                        <Printer size={20} /> <span className="nav-text">Barcode Printer</span>
+                    </NavLink>
                     <NavLink to="/quick-add" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Quick Add">
                         <Plus size={20} /> <span className="nav-text">Quick Add</span>
                     </NavLink>
@@ -152,9 +158,6 @@ const Layout = () => {
                     </NavLink>
                     <NavLink to="/whatsapp-bulk" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="WhatsApp">
                         <Smartphone size={20} /> <span className="nav-text">WhatsApp</span>
-                    </NavLink>
-                    <NavLink to="/barcodes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Barcodes">
-                        <Barcode size={20} /> <span className="nav-text">Barcodes</span>
                     </NavLink>
 
                     {user?.role === 'manager' && (

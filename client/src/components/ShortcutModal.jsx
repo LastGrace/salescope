@@ -1,6 +1,7 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Keyboard, Command } from 'lucide-react';
-import '../styles/Modal.css'; // Reusing existing modal styles
+import '../styles/Modal.css';
 
 const ShortcutModal = ({ onClose }) => {
     // Shortcuts Data
@@ -43,21 +44,21 @@ const ShortcutModal = ({ onClose }) => {
         }
     ];
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
+    return createPortal(
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
             <div className="modal-content shortcut-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div className="header-icon-wrapper">
-                            <Keyboard size={24} className="text-primary" />
+                            <Keyboard size={22} />
                         </div>
                         <div>
                             <h2>Keyboard Shortcuts</h2>
-                            <p className="text-sm text-muted" style={{ margin: 0, fontWeight: 400 }}>Master the app with these quick commands</p>
+                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400 }}>Master the app with these quick commands</p>
                         </div>
                     </div>
                     <button className="close-btn" onClick={onClose}>
-                        <X size={24} />
+                        <X size={20} />
                     </button>
                 </div>
 
@@ -91,7 +92,7 @@ const ShortcutModal = ({ onClose }) => {
                     </div>
                 </div>
             </div>
-            <style jsx>{`
+            <style>{`
                 .shortcut-modal {
                     max-width: 650px;
                     width: 95%;
@@ -100,35 +101,28 @@ const ShortcutModal = ({ onClose }) => {
                     flex-direction: column;
                     border-radius: 1rem;
                     overflow: hidden;
-                }
-                .modal-header {
-                    padding: 1.25rem 1.5rem;
-                    border-bottom: 1px solid var(--border);
                     background: var(--bg-card);
+                    border: 1px solid var(--border);
                 }
                 .header-icon-wrapper {
                     padding: 8px;
-                    background: var(--color-primary-light);
+                    background: rgba(var(--primary-rgb, 99, 102, 241), 0.15);
+                    color: var(--primary);
                     border-radius: 8px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                 }
-                .modal-body {
-                    padding: 1.5rem;
-                    overflow-y: auto;
-                    background: var(--bg-page);
-                }
                 .shortcuts-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 2rem;
+                    gap: 1.5rem;
                 }
                 .shortcut-category-title {
-                    font-size: 0.85rem;
+                    font-size: 0.8rem;
                     font-weight: 700;
-                    color: var(--text-muted);
-                    margin-bottom: 1rem;
+                    color: var(--primary);
+                    margin-bottom: 0.75rem;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     display: flex;
@@ -140,18 +134,21 @@ const ShortcutModal = ({ onClose }) => {
                 .shortcut-grid {
                     display: grid;
                     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                    gap: 1rem 2rem;
+                    gap: 0.75rem 1.5rem;
                 }
                 .shortcut-item {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 0.5rem;
+                    padding: 0.5rem 0.75rem;
                     border-radius: 8px;
-                    transition: background 0.2s;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border);
+                    transition: all 0.2s;
                 }
                 .shortcut-item:hover {
-                    background: var(--bg-card);
+                    background: var(--bg-sub);
+                    border-color: var(--primary);
                 }
                 .keys-wrapper {
                     display: flex;
@@ -163,35 +160,29 @@ const ShortcutModal = ({ onClose }) => {
                     color: var(--text-muted);
                 }
                 .shortcut-key {
-                    background: linear-gradient(to bottom, var(--bg-card), var(--bg-main));
+                    background: var(--bg-sub);
                     border: 1px solid var(--border);
-                    border-bottom-width: 3px;
+                    border-bottom-width: 2px;
                     border-radius: 6px;
                     padding: 2px 8px;
-                    font-family: 'Inter', sans-serif; /* Cleaner font */
-                    font-weight: 600;
-                    font-size: 0.85rem;
-                    color: var(--text-primary);
+                    font-family: 'Inter', sans-serif;
+                    font-weight: 700;
+                    font-size: 0.8rem;
+                    color: var(--text-main);
                     min-width: 24px;
                     text-align: center;
                     display: inline-block;
                     line-height: 1.4;
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                 }
                 .shortcut-desc {
-                    font-size: 0.9rem;
-                    color: var(--text-secondary);
+                    font-size: 0.85rem;
+                    color: var(--text-muted);
                     font-weight: 500;
                 }
-                /* Dark mode specific tweaks if needed */
-                @media (prefers-color-scheme: dark) {
-                    .shortcut-key {
-                        background: var(--bg-card);
-                        border-color: var(--border);
-                    }
-                }
             `}</style>
-        </div>
+        </div>,
+        document.body
     );
 };
 

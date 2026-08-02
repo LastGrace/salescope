@@ -20,8 +20,8 @@ const enforceLicense = async (req, res, next) => {
         return next();
     }
 
-    // 2. Bypass check for licensing, health, login, and store settings endpoints themselves to allow activation and login UI
-    if (path.includes('/api/license') || path.includes('/api/auth/login') || path.includes('/api/health') || path.includes('/api/settings/store')) {
+    // 2. Bypass check for licensing, health, login, store settings, and whatsapp status endpoints themselves to allow activation, login, and connection UI
+    if (path.includes('/api/license') || path.includes('/api/auth/login') || path.includes('/api/health') || path.includes('/api/settings/store') || path.includes('/api/whatsapp/start') || path.includes('/api/whatsapp/status') || path.includes('/api/whatsapp/stream')) {
         return next();
     }
 

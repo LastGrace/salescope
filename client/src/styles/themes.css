@@ -94,58 +94,58 @@
     --danger: #ef4444;
 }
 
-/* Sunset Light */
+/* Copper Light — Warm Premium Executive */
 [data-theme='light-sunset'] {
-    --primary: #ea580c;
-    --primary-hover: #c2410c;
-    --primary-rgb: 234, 88, 12;
+    --primary: #b45309;
+    --primary-hover: #92400e;
+    --primary-rgb: 180, 83, 9;
 
-    --bg-main: #fff7ed;
+    --bg-main: #faf8f5;
     --bg-card: #ffffff;
     --bg-input: #ffffff;
-    --bg-sub: #ffedd5;
+    --bg-sub: #f5f0e8;
 
     --text-main: #1c1917;
-    --text-muted: #44403c;
-    --text-light: #fff7ed;
+    --text-muted: #57534e;
+    --text-light: #faf8f5;
 
-    --border: #fb923c;
-    --border-light: #fdba74;
-    --input-border: #f97316;
+    --border: #d6c9b0;
+    --border-light: #e7ddd0;
+    --input-border: #c4a882;
 
-    --sidebar-bg: #c2410c;
-    --sidebar-hover: #ea580c;
-    --sidebar-active-bg: rgba(255, 255, 255, 0.2);
-    --sidebar-active-text: #ffffff;
+    --sidebar-bg: #292524;
+    --sidebar-hover: #3d3937;
+    --sidebar-active-bg: rgba(180, 83, 9, 0.18);
+    --sidebar-active-text: #fbbf24;
 
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
 }
 
-/* Stone Modern (Clean Neutral) */
+/* Jade Light — Premium Finance Green */
 [data-theme='light-stone'] {
-    --primary: #636e72;
-    --primary-hover: #2d3436;
-    --primary-rgb: 99, 110, 114;
+    --primary: #16a34a;
+    --primary-hover: #15803d;
+    --primary-rgb: 22, 163, 74;
 
-    --bg-main: #fdfdfd;
+    --bg-main: #f9fafb;
     --bg-card: #ffffff;
     --bg-input: #ffffff;
-    --bg-sub: #f1f2f6;
+    --bg-sub: #f0fdf4;
 
-    --text-main: #2d3436;
-    --text-muted: #636e72;
-    --text-light: #ffffff;
+    --text-main: #111827;
+    --text-muted: #374151;
+    --text-light: #f9fafb;
 
-    --border: #dfe6e9;
-    --border-light: #f1f2f6;
-    --input-border: #ced6e0;
+    --border: #d1fae5;
+    --border-light: #ecfdf5;
+    --input-border: #6ee7b7;
 
-    --sidebar-bg: #2d3436;
-    --sidebar-hover: #4d5456;
-    --sidebar-active-bg: rgba(255, 255, 255, 0.1);
-    --sidebar-active-text: #ffffff;
+    --sidebar-bg: #064e3b;
+    --sidebar-hover: #065f46;
+    --sidebar-active-bg: rgba(22, 163, 74, 0.18);
+    --sidebar-active-text: #6ee7b7;
 
     --success: #10b981;
     --warning: #f59e0b;
@@ -331,29 +331,29 @@
     --danger: #ef4444;
 }
 
-/* Mint Modern (Minimalist Mint) */
+/* Sapphire Light — Rich Enterprise Cyan-Blue (distinct from Ocean) */
 [data-theme='light-mint'] {
-    --primary: #00b894;
-    --primary-hover: #00a884;
-    --primary-rgb: 0, 184, 148;
+    --primary: #0891b2;
+    --primary-hover: #0e7490;
+    --primary-rgb: 8, 145, 178;
 
-    --bg-main: #f9fffb;
+    --bg-main: #f0f9ff;
     --bg-card: #ffffff;
     --bg-input: #ffffff;
-    --bg-sub: #e6fffb;
+    --bg-sub: #e0f2fe;
 
-    --text-main: #2d3436;
-    --text-muted: #636e72;
-    --text-light: #ffffff;
+    --text-main: #0c1a2e;
+    --text-muted: #475569;
+    --text-light: #f0f9ff;
 
-    --border: #b2bec3;
-    --border-light: #dfe6e9;
-    --input-border: #81ecec;
+    --border: #bae6fd;
+    --border-light: #e0f2fe;
+    --input-border: #7dd3fc;
 
-    --sidebar-bg: #004b3a;
-    --sidebar-hover: #005a46;
-    --sidebar-active-bg: rgba(0, 184, 148, 0.2);
-    --sidebar-active-text: #55efc4;
+    --sidebar-bg: #0c2340;
+    --sidebar-hover: #163860;
+    --sidebar-active-bg: rgba(8, 145, 178, 0.2);
+    --sidebar-active-text: #7dd3fc;
 
     --success: #10b981;
     --warning: #f59e0b;
@@ -418,29 +418,29 @@
     --danger: #ef4444;
 }
 
-/* Sky Modern (Minimalist Sky) */
+/* Graphite Light — Clean Sophisticated Neutral */
 [data-theme='light-sky'] {
-    --primary: #0984e3;
-    --primary-hover: #0873c4;
-    --primary-rgb: 9, 132, 227;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --primary-rgb: 79, 70, 229;
 
-    --bg-main: #fbfdff;
+    --bg-main: #f8f9fb;
     --bg-card: #ffffff;
     --bg-input: #ffffff;
-    --bg-sub: #ecf3ff;
+    --bg-sub: #f0f1f5;
 
-    --text-main: #2d3436;
-    --text-muted: #636e72;
-    --text-light: #ffffff;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --text-light: #f8f9fb;
 
-    --border: #b2bec3;
-    --border-light: #dfe6e9;
-    --input-border: #74b9ff;
+    --border: #d1d5db;
+    --border-light: #e5e7eb;
+    --input-border: #9ca3af;
 
-    --sidebar-bg: #0a3d62;
-    --sidebar-hover: #104e7a;
-    --sidebar-active-bg: rgba(9, 132, 227, 0.2);
-    --sidebar-active-text: #81ecec;
+    --sidebar-bg: #18181b;
+    --sidebar-hover: #27272a;
+    --sidebar-active-bg: rgba(79, 70, 229, 0.18);
+    --sidebar-active-text: #a5b4fc;
 
     --success: #10b981;
     --warning: #f59e0b;

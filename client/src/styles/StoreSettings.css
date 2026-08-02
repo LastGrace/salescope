@@ -140,7 +140,7 @@
 }
 
 .tab-btn.active {
-    color: var(--bg-card);
+    color: var(--primary);
 }
 
 .tab-btn.active::after {

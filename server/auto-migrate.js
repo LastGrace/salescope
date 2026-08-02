@@ -68,6 +68,9 @@ async function checkAndMigrate() {
         // 1. Check for product_add_sound_url
         await ensureColumn('store_settings', 'product_add_sound_url', 'VARCHAR(255) AFTER login_logo_height');
 
+        // Check for sales.credit_note_amount
+        await ensureColumn('sales', 'credit_note_amount', 'DECIMAL(10,2) DEFAULT 0.00 AFTER total_amount');
+
         // 2. Check for pos_background fields individually
         await ensureColumn('store_settings', 'pos_background_url', 'VARCHAR(255) AFTER login_logo_height');
         await ensureColumn('store_settings', 'pos_background_width', 'VARCHAR(50) AFTER pos_background_url');
@@ -165,6 +168,43 @@ async function checkAndMigrate() {
         await ensureIndex('sale_items', 'idx_sale_items_composite', '(sale_id, product_id, price_at_sale, quantity)');
         await ensureIndex('products', 'idx_products_barcode_status', '(barcode, status)');
         await ensureIndex('expenses', 'idx_expenses_date_amount', '(date, amount)');
+
+        // 6. Ensure Barcode Studio tables exist
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS barcode_presets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                category VARCHAR(100) DEFAULT 'Product Barcode',
+                is_default TINYINT(1) DEFAULT 0,
+                is_favorite TINYINT(1) DEFAULT 0,
+                label_width DECIMAL(6,2) NOT NULL DEFAULT 50.00,
+                label_height DECIMAL(6,2) NOT NULL DEFAULT 25.00,
+                paper_type VARCHAR(50) DEFAULT 'thermal',
+                page_layout JSON,
+                canvas_data JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS printer_profiles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                printer_type VARCHAR(50) DEFAULT 'thermal',
+                dpi INT DEFAULT 203,
+                print_mode VARCHAR(50) DEFAULT 'gap',
+                darkness INT DEFAULT 10,
+                speed INT DEFAULT 3,
+                offset_x DECIMAL(5,2) DEFAULT 0.00,
+                offset_y DECIMAL(5,2) DEFAULT 0.00,
+                feed_direction VARCHAR(50) DEFAULT 'normal',
+                page_size VARCHAR(50) DEFAULT 'Custom',
+                is_default TINYINT(1) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
 
         // ── Write stamp file so next boot skips all of this ──
         try {
