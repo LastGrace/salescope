@@ -10,6 +10,7 @@ import { getPrintPageStyle, getCalculatedRollWidth } from './BarcodeStudio/utils
 import LabelElementRenderer from './BarcodeStudio/components/LabelElementRenderer';
 import { useTheme } from '../context/ThemeContext';
 import './BarcodeStudio/styles/BarcodeStudio.css';
+import useSessionState from '../hooks/useSessionState';
 
 const BarcodePrinter = () => {
     const { currentTheme } = useTheme();
@@ -19,16 +20,16 @@ const BarcodePrinter = () => {
 
     // Presets & Layout State
     const [presets, setPresets] = useState([]);
-    const [selectedPresetId, setSelectedPresetId] = useState('');
-    const [activePreset, setActivePreset] = useState(BUILTIN_TEMPLATES[0]);
+    const [selectedPresetId, setSelectedPresetId] = useSessionState('bp_selectedPresetId', '');
+    const [activePreset, setActivePreset] = useSessionState('bp_activePreset', BUILTIN_TEMPLATES[0]);
     const [loadingPresets, setLoadingPresets] = useState(true);
-    const [panelWidth, setPanelWidth] = useState(480);
+    const [panelWidth, setPanelWidth] = useSessionState('bp_panelWidth', 480);
 
     // Catalog & Queue State
     const [products, setProducts] = useState([]);
     const [barcodeScanInput, setBarcodeScanInput] = useState('');
     const [nameSearchInput, setNameSearchInput] = useState('');
-    const [queue, setQueue] = useState([]);
+    const [queue, setQueue] = useSessionState('bp_queue', []);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
     // Refs
@@ -43,18 +44,17 @@ const BarcodePrinter = () => {
                 const res = await axios.get('/api/barcode/presets');
                 const data = Array.isArray(res.data) ? res.data : [];
                 setPresets(data);
-                if (data.length > 0) {
+                
+                setActivePreset(prev => {
+                    if (prev && prev.id && prev.id !== BUILTIN_TEMPLATES[0].id) return prev;
                     const defaultPreset = data.find(p => p.is_default) || data[0];
-                    setSelectedPresetId(defaultPreset.id);
-                    setActivePreset(defaultPreset);
-                } else {
-                    setSelectedPresetId(BUILTIN_TEMPLATES[0].id);
-                    setActivePreset(BUILTIN_TEMPLATES[0]);
-                }
+                    if (defaultPreset) setSelectedPresetId(defaultPreset.id);
+                    return defaultPreset || BUILTIN_TEMPLATES[0];
+                });
+                
             } catch (err) {
                 console.error('Failed to load presets:', err);
-                setSelectedPresetId(BUILTIN_TEMPLATES[0].id);
-                setActivePreset(BUILTIN_TEMPLATES[0]);
+                // Fallback handled by session state
             } finally {
                 setLoadingPresets(false);
             }

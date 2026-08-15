@@ -1,7 +1,7 @@
 import React from 'react';
 import { resolvePlaceholders, generateBarcodeDataUrl } from '../utils/barcodeRenderer';
 
-const MM_TO_PX = 3.7795;
+const MM_TO_PX = 96 / 25.4;
 
 const LabelElementRenderer = ({
     element,
@@ -14,10 +14,6 @@ const LabelElementRenderer = ({
     const el = element;
     if (!el) return null;
 
-    const xPx = (el.x || 0) * MM_TO_PX;
-    const yPx = (el.y || 0) * MM_TO_PX;
-    const wPx = (el.width || 10) * MM_TO_PX;
-    const hPx = (el.height || 5) * MM_TO_PX;
     const resolvedText = resolvePlaceholders(el.text || '', productData);
 
     const alignJustify = el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start');
@@ -27,10 +23,10 @@ const LabelElementRenderer = ({
             className={`canvas-element-node ${isSelected ? 'selected' : ''} ${el.locked ? 'locked' : ''}`}
             style={{
                 position: 'absolute',
-                left: `${xPx}px`,
-                top: `${yPx}px`,
-                width: `${wPx}px`,
-                height: `${hPx}px`,
+                left: `${el.x || 0}mm`,
+                top: `${el.y || 0}mm`,
+                width: `${el.width || 10}mm`,
+                height: `${el.height || 5}mm`,
                 transform: `rotate(${el.rotation || 0}deg)`,
                 zIndex: el.zIndex || 1,
                 pointerEvents: isEditor ? 'auto' : 'none',
@@ -52,7 +48,7 @@ const LabelElementRenderer = ({
                         alignItems: 'center',
                         justifyContent: alignJustify,
                         textAlign: el.align || 'left',
-                        fontFamily: el.fontFamily || 'sans-serif',
+                        fontFamily: el.fontFamily ? `${el.fontFamily}, sans-serif` : 'Arial, Helvetica, sans-serif',
                         fontSize: `${el.fontSize || 10}pt`,
                         fontWeight: el.fontWeight || 'bold',
                         fontStyle: el.fontStyle || 'normal',
@@ -65,7 +61,9 @@ const LabelElementRenderer = ({
                         textOverflow: 'ellipsis',
                         border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : 'none',
                         borderRadius: `${el.borderRadius || 0}px`,
-                        padding: el.padding ? `${el.padding * MM_TO_PX}px` : 0,
+                        padding: el.padding ? `${el.padding}mm` : 0,
+                        backgroundColor: el.backgroundColor || 'transparent',
+                        wordBreak: 'break-word',
                         boxSizing: 'border-box'
                     }}
                 >

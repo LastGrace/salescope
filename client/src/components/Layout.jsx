@@ -144,9 +144,6 @@ const Layout = () => {
                     <NavLink to="/inventory" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Inventory">
                         <Package size={20} /> <span className="nav-text">Inventory</span>
                     </NavLink>
-                    <NavLink to="/barcodes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Barcode Studio">
-                        <Barcode size={20} /> <span className="nav-text">Barcode Studio</span>
-                    </NavLink>
                     <NavLink to="/barcode-printer" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title="Barcode Printer">
                         <Printer size={20} /> <span className="nav-text">Barcode Printer</span>
                     </NavLink>

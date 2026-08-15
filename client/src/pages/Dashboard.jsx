@@ -7,7 +7,7 @@ import {
     CreditCard, Package, Wallet, Ban, Ticket, Users,
     Star, RotateCcw, Folder, FileText,
     Database, Settings, ShoppingCart, TrendingUp, ChartNoAxesCombined, Plus, Smartphone, Truck,
-    Store, History, Info
+    Store, History, Info, Printer, Barcode
 } from 'lucide-react';
 
 import '../styles/Dashboard.css';
@@ -46,7 +46,8 @@ const Dashboard = () => {
         { label: 'Credit Bills', path: '/credit-bills', icon: Wallet, permission: 'dashboard.view', color: 'theme-indigo' },
         { label: 'Credit Notes', path: '/credit-notes', icon: FileText, permission: 'dashboard.view', color: 'theme-blue' },
         { label: 'Loyalty', path: '/loyalty-settings', icon: Star, permission: 'dashboard.view', color: 'theme-orange' },
-        { label: 'Barcodes', path: '/barcodes', icon: Package, permission: 'dashboard.view', color: 'theme-green' },
+        { label: 'Barcode Studio', path: '/barcodes', icon: Barcode, permission: 'dashboard.view', color: 'theme-green' },
+        { label: 'Barcode Printer', path: '/barcode-printer', icon: Printer, permission: 'dashboard.view', color: 'theme-green' },
         { label: 'Coupons', path: '/coupons', icon: Ticket, permission: 'dashboard.view', color: 'theme-purple' },
         { label: 'Database', path: '/database', icon: Database, permission: 'dashboard.view', color: 'theme-cyan' },
         { label: 'WhatsApp History', path: '/whatsapp-activity', icon: History, permission: 'dashboard.view', color: 'theme-cyan' },
@@ -64,7 +65,7 @@ const Dashboard = () => {
         axios.get('/api/backup/drive/status', { headers })
             .then(res => setDriveStatus(res.data?.connected || false))
             .catch(() => {})
-            .finally(() => { setRefreshing(false); setLoading(false); });
+            .finally(() => { setRefreshing(false); });
 
         axios.get('/api/license/status', { headers })
             .then(res => setLicenseStatus(res.data || null))
@@ -80,14 +81,23 @@ const Dashboard = () => {
             .then(res => setStoreSettings(res.data))
             .catch(() => { });
 
-        // Pre-fetch key page chunks in background for instantaneous 0ms page transitions
-        import('./POSNew.jsx').catch(() => {});
-        import('./Inventory.jsx').catch(() => {});
-        import('./Customers.jsx').catch(() => {});
+        // Unblock UI immediately so Dashboard renders while APIs finish in background
+        setLoading(false);
+
+        // Pre-fetch key page chunks delayed by 2.5s so it doesn't freeze the login animation
+        const prefetchTimer = setTimeout(() => {
+            import('./POSNew.jsx').catch(() => {});
+            import('./Inventory.jsx').catch(() => {});
+            import('./Customers.jsx').catch(() => {});
+        }, 2500);
 
         // Real-time polling every 8 seconds
         const pollInterval = setInterval(() => fetchStatusData(), 8000);
-        return () => clearInterval(pollInterval);
+        
+        return () => {
+            clearInterval(pollInterval);
+            clearTimeout(prefetchTimer);
+        };
     }, [token, hasPermission, fetchStatusData]);
 
     if (!hasPermission('dashboard.view')) {

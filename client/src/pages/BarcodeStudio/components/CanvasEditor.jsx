@@ -15,8 +15,8 @@ const CanvasEditor = ({
     const labelWidthMm = preset.label_width || 50;
     const labelHeightMm = preset.label_height || 25;
 
-    // Convert mm to pixels at 96 DPI scale (1mm ≈ 3.7795px)
-    const MM_TO_PX = 3.7795;
+    // Convert mm to pixels at 96 DPI scale (1mm = 96/25.4 px)
+    const MM_TO_PX = 96 / 25.4;
     const canvasWidthPx = labelWidthMm * MM_TO_PX;
     const canvasHeightPx = labelHeightMm * MM_TO_PX;
 
@@ -117,7 +117,6 @@ const CanvasEditor = ({
     };
 
     const layoutCols = preset.page_layout?.cols || 1;
-    const gapHPx = (preset.page_layout?.gapH || 0) * MM_TO_PX;
 
     return (
         <div
@@ -127,7 +126,14 @@ const CanvasEditor = ({
             onClick={() => setSelectedId(null)}
         >
             <div className="canvas-stage">
-                <div style={{ display: 'flex', alignItems: 'center', gap: `${gapHPx * zoom}px` }}>
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: `${preset.page_layout?.gapH || 0}mm`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.15s ease-out'
+                }}>
                     {Array.from({ length: layoutCols }).map((_, colIdx) => {
                         const isMainEditor = colIdx === 0;
                         let extraX = 0;
@@ -147,21 +153,20 @@ const CanvasEditor = ({
                                 ref={isMainEditor ? canvasRef : null}
                                 className={`label-canvas-artboard ${!isMainEditor ? 'replica-artboard' : ''}`}
                                 style={{
-                                    width: `${canvasWidthPx}px`,
-                                    height: `${canvasHeightPx}px`,
-                                    transform: `scale(${zoom})`,
+                                    width: `${labelWidthMm}mm`,
+                                    height: `${labelHeightMm}mm`,
                                     borderRadius: `${preset.corner_radius || 0}mm`,
                                     opacity: isMainEditor ? 1 : 0.88,
                                     position: 'relative',
-                                    left: extraX ? `${extraX * MM_TO_PX * zoom}px` : '0px',
-                                    top: extraY ? `${extraY * MM_TO_PX * zoom}px` : '0px',
+                                    left: extraX ? `${extraX}mm` : '0mm',
+                                    top: extraY ? `${extraY}mm` : '0mm',
                                     transition: 'left 0.05s ease-out, top 0.05s ease-out'
                                 }}
                             >
                                 {isMainEditor && showGrid && <div className="canvas-grid-lines" />}
                                 {!isMainEditor && (
-                                    <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(59,130,246,0.8)', color: '#fff', fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', zIndex: 10 }}>
-                                        Sticker {colIdx + 1} (2-Up Roll)
+                                    <div style={{ position: 'absolute', top: '-24px', right: '0px', background: 'var(--primary, rgba(59,130,246,0.8))', color: '#fff', fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', zIndex: 10, whiteSpace: 'nowrap' }}>
+                                        Sticker {colIdx + 1} Replica
                                     </div>
                                 )}
 
@@ -169,7 +174,7 @@ const CanvasEditor = ({
                                     <LabelElementRenderer
                                         key={el.id}
                                         element={el}
-                                        productData={{ product: sampleProduct }}
+                                        productData={{ product: sampleProduct, store: sampleProduct?.store }}
                                         isSelected={isMainEditor && selectedId === el.id}
                                         isEditor={isMainEditor}
                                         onMouseDown={handleMouseDown}

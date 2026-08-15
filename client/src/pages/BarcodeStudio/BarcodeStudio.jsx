@@ -13,14 +13,15 @@ import PresetManagerModal from './components/PresetManagerModal';
 import PrinterProfileModal from './components/PrinterProfileModal';
 
 import './styles/BarcodeStudio.css';
+import useSessionState from '../../hooks/useSessionState';
 
 const BarcodeStudio = () => {
     // Mode: 'designer' or 'queue'
-    const [mode, setMode] = useState('designer');
+    const [mode, setMode] = useSessionState('bs_mode', 'designer');
 
     // Presets list & active preset
     const [presets, setPresets] = useState([]);
-    const [activePreset, setActivePreset] = useState({
+    const [activePreset, setActivePreset] = useSessionState('bs_activePreset', {
         id: null,
         name: 'Product Barcode (Standard)',
         category: 'Product Barcode',
@@ -45,15 +46,15 @@ const BarcodeStudio = () => {
 
     // Canvas Selection & History
     const [selectedElementId, setSelectedElementId] = useState(null);
-    const [history, setHistory] = useState([]);
-    const [historyIndex, setHistoryIndex] = useState(-1);
+    const [history, setHistory] = useSessionState('bs_history', []);
+    const [historyIndex, setHistoryIndex] = useSessionState('bs_historyIndex', -1);
 
     // Zoom & Grid
-    const [zoom, setZoom] = useState(1.5);
-    const [showGrid, setShowGrid] = useState(true);
+    const [zoom, setZoom] = useSessionState('bs_zoom', 1.5);
+    const [showGrid, setShowGrid] = useSessionState('bs_showGrid', true);
 
     // Print Batch Queue
-    const [queue, setQueue] = useState([]);
+    const [queue, setQueue] = useSessionState('bs_queue', []);
 
     // Modals
     const [showProductSelector, setShowProductSelector] = useState(false);
@@ -63,8 +64,12 @@ const BarcodeStudio = () => {
 
     const canvasRef = useRef(null);
 
+    // Products catalog for sample selection
+    const [products, setProducts] = useState([]);
+
     // Sample Product Data for live designer preview
-    const sampleProduct = {
+    const [sampleProduct, setSampleProduct] = useSessionState('bs_sampleProduct', {
+        id: 'default',
         name: 'MEN COTTON T-SHIRT',
         barcode: '8901234567890',
         sku: 'TSH-BLK-M',
@@ -77,21 +82,40 @@ const BarcodeStudio = () => {
         batch: 'B2026-07',
         expiry: '12/2028',
         hsn: '61091000'
-    };
+    });
 
     useEffect(() => {
         fetchPresets();
         fetchPrinterProfiles();
         fetchStoreSettings();
+        fetchProducts();
     }, []);
+
+    const fetchProducts = async () => {
+        try {
+            let data = [];
+            try {
+                const res = await axios.get('/api/barcode/batch-products?limit=9999999');
+                data = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+            } catch {
+                const res = await axios.get('/api/products?limit=9999999');
+                data = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+            }
+            setProducts(data);
+        } catch (err) {
+            console.error('Failed to load products:', err);
+        }
+    };
 
     const fetchPresets = async () => {
         try {
             const res = await axios.get('/api/barcode/presets');
             if (res.data && res.data.length > 0) {
                 setPresets(res.data);
-                const def = res.data.find(p => p.is_default) || res.data[0];
-                setActivePreset(def);
+                setActivePreset(prev => {
+                    if (prev && prev.id !== null) return prev;
+                    return res.data.find(p => p.is_default) || res.data[0];
+                });
             }
         } catch (e) {
             console.error('Fetch presets error:', e);
@@ -295,6 +319,9 @@ const BarcodeStudio = () => {
                 setZoom={setZoom}
                 showGrid={showGrid}
                 setShowGrid={setShowGrid}
+                products={products}
+                sampleProduct={sampleProduct}
+                setSampleProduct={setSampleProduct}
                 onOpenPreview={() => setShowPreviewModal(true)}
                 onOpenPrintBatch={() => setMode('queue')}
                 onOpenPresetsModal={() => setShowPresetModal(true)}
