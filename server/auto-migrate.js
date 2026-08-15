@@ -83,12 +83,13 @@ async function checkAndMigrate() {
         await ensureColumn('store_settings', 'dashboard_logo_height', 'VARCHAR(50) AFTER dashboard_logo_width');
         await ensureColumn('store_settings', 'show_dashboard_logo', 'TINYINT(1) DEFAULT 1 AFTER dashboard_logo_height');
 
-        // 3. Check for visibility toggles
+        // 3. Check for visibility toggles & license backup column
         await ensureColumn('store_settings', 'show_logo', 'TINYINT(1) DEFAULT 1 AFTER logo_height');
         await ensureColumn('store_settings', 'show_bill_logo', 'TINYINT(1) DEFAULT 1 AFTER bill_logo_height');
         await ensureColumn('store_settings', 'show_login_logo', 'TINYINT(1) DEFAULT 1 AFTER login_logo_height');
         await ensureColumn('store_settings', 'show_pos_background', 'TINYINT(1) DEFAULT 1 AFTER pos_background_opacity');
         await ensureColumn('store_settings', 'show_product_add_sound', 'TINYINT(1) DEFAULT 1 AFTER product_add_sound_url');
+        await ensureColumn('store_settings', 'license_key_data', 'TEXT DEFAULT NULL');
 
         // 4. Ensure messaging_settings table exists
         await connection.query(`

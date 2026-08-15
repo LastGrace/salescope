@@ -752,7 +752,7 @@ const POS = () => {
 
     const fetchProducts = async () => {
         try {
-            const res = await axios.get('/api/products');
+            const res = await axios.get('/api/products?limit=9999999');
             setProducts(Array.isArray(res.data) ? res.data : res.data.products || []);
         } catch (err) { console.error(err); }
     };

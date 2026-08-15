@@ -202,8 +202,24 @@ const Inventory = () => {
     };
 
     const handleExport = () => {
-        const token = sessionStorage.getItem('token');
-        window.open(`/api/export/products?token=${token}`, '_blank');
+        if (!products || products.length === 0) return toast.error('No products to export');
+
+        const data = products.map(p => ({
+            'Barcode / SKU': p.barcode || '',
+            'Product Name': p.name || '',
+            'Category': p.category || '',
+            'Subcategory': p.subcategory_name || '',
+            'Selling Price': parseFloat(p.price || 0).toFixed(2),
+            'Cost Price': parseFloat(p.cost_price || 0).toFixed(2),
+            'Stock Quantity': p.stock_quantity || 0,
+            'Low Stock Alert': p.low_stock_threshold || 10
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+        XLSX.writeFile(wb, `inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Inventory exported successfully');
     };
 
     const handleImport = (e) => {

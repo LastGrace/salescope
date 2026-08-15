@@ -725,7 +725,7 @@ const POSNew = () => {
     const fetchProducts = async () => {
         try {
             // Use lite=true to fetch only essential fields to prevent Network Error
-            const res = await axios.get('/api/products?limit=9999&lite=true');
+            const res = await axios.get('/api/products?limit=9999999&lite=true');
             // Backend in lite mode returns flat array or { products: [] } depending on implementation, handle both
             const data = res.data.products ? res.data.products : (Array.isArray(res.data) ? res.data : []);
             setProducts(data);

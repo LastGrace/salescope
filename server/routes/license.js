@@ -16,12 +16,14 @@ router.get('/status', async (req, res) => {
     try {
         const now = Date.now();
 
+        const forceSync = req.query.forceSync === 'true';
+
         // Return cached result if fresh (avoids expensive HWID + crypto on every poll, unless status is pending)
-        if (statusCache && statusCache.status !== 'pending' && (now - statusCacheTime) < STATUS_CACHE_TTL) {
+        if (!forceSync && statusCache && statusCache.status !== 'pending' && (now - statusCacheTime) < STATUS_CACHE_TTL) {
             return res.json(statusCache);
         }
 
-        const validation = await getLicenseStatus();
+        const validation = await getLicenseStatus(forceSync);
         const hwid = getHardwareProfile();
 
         const result = {

@@ -14,11 +14,55 @@ const parseJsonField = (field) => {
     }
 };
 
+// Helper to auto-create barcode tables if they do not exist
+const ensureBarcodeTablesExist = async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS barcode_presets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                category VARCHAR(100) DEFAULT 'Product Barcode',
+                is_default TINYINT(1) DEFAULT 0,
+                is_favorite TINYINT(1) DEFAULT 0,
+                label_width DECIMAL(6,2) NOT NULL DEFAULT 50.00,
+                label_height DECIMAL(6,2) NOT NULL DEFAULT 25.00,
+                paper_type VARCHAR(50) DEFAULT 'thermal',
+                page_layout JSON,
+                canvas_data JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS printer_profiles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                printer_type VARCHAR(50) DEFAULT 'thermal',
+                dpi INT DEFAULT 203,
+                print_mode VARCHAR(50) DEFAULT 'gap',
+                darkness INT DEFAULT 10,
+                speed INT DEFAULT 3,
+                offset_x DECIMAL(5,2) DEFAULT 0.00,
+                offset_y DECIMAL(5,2) DEFAULT 0.00,
+                feed_direction VARCHAR(50) DEFAULT 'normal',
+                page_size VARCHAR(50) DEFAULT 'Custom',
+                is_default TINYINT(1) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+    } catch (err) {
+        console.error('[BarcodeAPI] ensureBarcodeTablesExist error:', err.message);
+    }
+};
+
 // ── PRESETS API ───────────────────────────────────────────────────
 
 // GET /api/barcode/presets - List all presets
 router.get('/presets', verifyToken, async (req, res) => {
     try {
+        await ensureBarcodeTablesExist();
         const [rows] = await db.query('SELECT * FROM barcode_presets ORDER BY is_default DESC, is_favorite DESC, name ASC');
         const presets = rows.map(r => ({
             ...r,
@@ -255,6 +299,7 @@ router.post('/presets/import', verifyToken, async (req, res) => {
 // GET /api/barcode/printer-profiles
 router.get('/printer-profiles', verifyToken, async (req, res) => {
     try {
+        await ensureBarcodeTablesExist();
         const [rows] = await db.query('SELECT * FROM printer_profiles ORDER BY is_default DESC, name ASC');
         res.json(rows);
     } catch (err) {
