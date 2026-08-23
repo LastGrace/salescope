@@ -26,15 +26,21 @@ router.get('/status', async (req, res) => {
         const validation = await getLicenseStatus(forceSync);
         const hwid = getHardwareProfile();
 
+        let previousKey = '';
+        try {
+            const { getRawLicenseKey } = require('../services/licenseService');
+            previousKey = getRawLicenseKey();
+        } catch(e) {}
+
         const result = {
             status: validation.status,
             reason: validation.reason,
             daysLeft: validation.daysLeft !== undefined ? validation.daysLeft : null,
             billsLeft: validation.billsLeft !== undefined ? validation.billsLeft : null,
             payload: validation.payload || null,
-            hwid // Return local hardware identifiers for UI copy pasting
+            hwid, // Return local hardware identifiers for UI copy pasting
+            previousKey
         };
-
         statusCache = result;
         statusCacheTime = now;
 

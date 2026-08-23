@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { Send, Upload, Smartphone, CheckCircle, XCircle, Loader, FileText, MessageSquare, StopCircle, RefreshCw } from 'lucide-react';
+import { Send, Upload, Smartphone, CheckCircle, XCircle, Loader, FileText, MessageSquare, StopCircle, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
 import '../styles/WhatsAppBulk.css';
 import WhatsAppConnectionBtn from '../components/WhatsAppConnectionBtn';
 
@@ -18,6 +18,7 @@ const WhatsAppBulk = () => {
     // Campaign state (mirrored from server)
     const [campaign, setCampaign] = useState(null);
     const [isStarting, setIsStarting] = useState(false);
+    const [showLogs, setShowLogs] = useState(true);
 
     const fileInputRef = useRef(null);
     const logEndRef = useRef(null);
@@ -130,6 +131,16 @@ const WhatsAppBulk = () => {
         }
     };
 
+    // ── Dismiss / Clear Campaign Banner ───────────────────────────────────────
+    const handleDismiss = async () => {
+        try {
+            await axios.post('/api/whatsapp/campaign/clear');
+        } catch (e) {
+            // Silently ignore
+        }
+        setCampaign(null);
+    };
+
     // ── WhatsApp helpers ─────────────────────────────────────────────────────
     const handleRestart = async () => {
         try {
@@ -191,15 +202,28 @@ const WhatsAppBulk = () => {
                             </span>
                         </div>
                         <div className="wa-campaign-banner-actions">
-                            {isCampaignRunning && (
+                            {isCampaignRunning ? (
                                 <button className="wa-cancel-btn" onClick={handleCancel}>
                                     <StopCircle size={14} /> Cancel
                                 </button>
-                            )}
-                            {!isCampaignRunning && (
-                                <button className="wa-refresh-btn" onClick={fetchCampaignStatus}>
-                                    <RefreshCw size={14} /> Refresh
-                                </button>
+                            ) : (
+                                <>
+                                    <button
+                                        className="wa-logs-toggle-btn"
+                                        onClick={() => setShowLogs(prev => !prev)}
+                                        title={showLogs ? "Hide logs" : "View logs"}
+                                    >
+                                        {showLogs ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                        {showLogs ? 'Hide Logs' : 'View Logs'}
+                                    </button>
+                                    <button
+                                        className="wa-dismiss-btn"
+                                        onClick={handleDismiss}
+                                        title="Dismiss this campaign banner"
+                                    >
+                                        <X size={14} /> Dismiss
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -213,14 +237,16 @@ const WhatsAppBulk = () => {
                     </div>
 
                     {/* Logs */}
-                    <div className="wa-campaign-logs">
-                        {(campaign.logs || []).map((l, i) => (
-                            <div key={i} className={`whatsapp-log-item ${l.type}`}>
-                                <span className="whatsapp-log-time">[{l.time}]</span> {l.msg}
-                            </div>
-                        ))}
-                        <div ref={logEndRef} />
-                    </div>
+                    {showLogs && (
+                        <div className="wa-campaign-logs">
+                            {(campaign.logs || []).map((l, i) => (
+                                <div key={i} className={`whatsapp-log-item ${l.type}`}>
+                                    <span className="whatsapp-log-time">[{l.time}]</span> {l.msg}
+                                </div>
+                            ))}
+                            <div ref={logEndRef} />
+                        </div>
+                    )}
                 </div>
             )}
 

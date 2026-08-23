@@ -895,6 +895,15 @@ const performFullLicenseCheck = async (forceSync) => {
                     };
                 }
             } catch (error) {
+                // Check if the server explicitly rejected the validation (e.g., 401 Unauthorized due to revoked/expired license)
+                if (error.response && (error.response.status === 401 || error.response.status === 400)) {
+                    await touchLastRunTime();
+                    return {
+                        status: 'invalid',
+                        reason: error.response.data?.error || 'License revoked or expired by server administrator.'
+                    };
+                }
+
                 // Online check failed (network downtime, Render cold start, or server unreachable)
                 
                 // Enforce strictly 3-day offline threshold
@@ -1171,6 +1180,15 @@ function startLicenseScheduler() {
     }, 30 * 60 * 1000); 
 }
 
+const getRawLicenseKey = () => {
+    try {
+        const licenseData = decryptLicense(fs.readFileSync(LICENSE_FILE, 'utf8'));
+        return licenseData?.key || '';
+    } catch (e) {
+        return '';
+    }
+};
+
 module.exports = {
     getHardwareProfile,
     prewarmHardwareProfileAsync,
@@ -1179,6 +1197,7 @@ module.exports = {
     verifyLicenseKey,
     getLicenseStatus,
     activateLicense,
+    getRawLicenseKey,
     deactivateLicense,
     startLicenseScheduler
 };
