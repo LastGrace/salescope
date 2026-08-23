@@ -62,17 +62,19 @@
     gap: 0.5rem;
 }
 .wa-cancel-btn,
-.wa-refresh-btn {
+.wa-refresh-btn,
+.wa-dismiss-btn,
+.wa-logs-toggle-btn {
     display: flex;
     align-items: center;
     gap: 0.35rem;
     font-size: 0.78rem;
-    padding: 0.3rem 0.75rem;
+    padding: 0.35rem 0.75rem;
     border-radius: 6px;
     border: none;
     cursor: pointer;
     font-weight: 500;
-    transition: background 0.2s;
+    transition: all 0.2s;
 }
 .wa-cancel-btn {
     background: rgba(220, 53, 69, 0.15);
@@ -87,6 +89,22 @@
 }
 .wa-refresh-btn:hover {
     background: rgba(100, 116, 139, 0.35);
+}
+.wa-dismiss-btn {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+.wa-dismiss-btn:hover {
+    background: rgba(239, 68, 68, 0.28);
+    color: #dc2626;
+}
+.wa-logs-toggle-btn {
+    background: rgba(100, 116, 139, 0.2);
+    color: var(--text-secondary, #94a3b8);
+}
+.wa-logs-toggle-btn:hover {
+    background: rgba(100, 116, 139, 0.35);
+    color: var(--text-primary, #e2e8f0);
 }
 .wa-progress-bar-track {
     width: 100%;

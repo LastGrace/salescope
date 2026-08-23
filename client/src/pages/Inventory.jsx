@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, Edit, Trash, Download, Upload, FileText, Search, Package } from 'lucide-react';
+import { Plus, Edit, Trash, Download, Upload, FileText, Search, Package, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -202,8 +202,24 @@ const Inventory = () => {
     };
 
     const handleExport = () => {
-        const token = sessionStorage.getItem('token');
-        window.open(`/api/export/products?token=${token}`, '_blank');
+        if (!products || products.length === 0) return toast.error('No products to export');
+
+        const data = products.map(p => ({
+            'Barcode / SKU': p.barcode || '',
+            'Product Name': p.name || '',
+            'Category': p.category || '',
+            'Subcategory': p.subcategory_name || '',
+            'Selling Price': parseFloat(p.price || 0).toFixed(2),
+            'Cost Price': parseFloat(p.cost_price || 0).toFixed(2),
+            'Stock Quantity': p.stock_quantity || 0,
+            'Low Stock Alert': p.low_stock_threshold || 10
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+        XLSX.writeFile(wb, `inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Inventory exported successfully');
     };
 
     const handleImport = (e) => {
@@ -301,14 +317,19 @@ const Inventory = () => {
             {/* Category Modal */}
             {
                 showCategoryForm && (
-                    <div className="inventory-modal-overlay">
-                        <div className="inventory-modal modal-category">
-                            <h3>Add New Category</h3>
+                    <div className="inventory-modal-overlay" onClick={() => setShowCategoryForm(false)}>
+                        <div className="inventory-modal modal-category" onClick={e => e.stopPropagation()}>
+                            <div className="inventory-modal-header">
+                                <h3>Add New Category</h3>
+                                <button type="button" className="inventory-modal-close" onClick={() => setShowCategoryForm(false)}>
+                                    <X size={20} />
+                                </button>
+                            </div>
                             <form onSubmit={handleAddCategory} className="inventory-form-full">
                                 <input className="input" placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} autoFocus />
                                 <div className="form-actions">
                                     <button type="button" className="btn" onClick={() => setShowCategoryForm(false)}>Cancel</button>
-                                    <button type="submit" className="btn btn-primary">Add</button>
+                                    <button type="submit" className="btn btn-primary">Add Category</button>
                                 </div>
                             </form>
                         </div>
@@ -319,9 +340,14 @@ const Inventory = () => {
             {/* Product Modal */}
             {
                 showForm && (
-                    <div className="inventory-modal-overlay">
-                        <div className="inventory-modal modal-product">
-                            <h3>{editingProduct ? 'Edit Product' : 'New Product'}</h3>
+                    <div className="inventory-modal-overlay" onClick={() => setShowForm(false)}>
+                        <div className="inventory-modal modal-product" onClick={e => e.stopPropagation()}>
+                            <div className="inventory-modal-header">
+                                <h3>{editingProduct ? 'Edit Product' : 'New Product'}</h3>
+                                <button type="button" className="inventory-modal-close" onClick={() => setShowForm(false)}>
+                                    <X size={20} />
+                                </button>
+                            </div>
                             <form onSubmit={handleSubmit} className="inventory-form">
                                 <div><label>Barcode</label><input className="input" required value={formData.barcode} onChange={e => setFormData({ ...formData, barcode: e.target.value.toUpperCase() })} /></div>
                                 <div><label>Name</label><input className="input" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
@@ -332,7 +358,7 @@ const Inventory = () => {
                                             <option value="">Select Category</option>
                                             {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                         </select>
-                                        {canManageCategories && <button type="button" className="btn" onClick={() => setShowCategoryForm(true)}><Plus size={16} /></button>}
+                                        {canManageCategories && <button type="button" className="btn" title="Add New Category" onClick={() => setShowCategoryForm(true)}><Plus size={16} /></button>}
                                     </div>
                                 </div>
                                 <div>

@@ -273,6 +273,33 @@ const cancelCampaign = () => {
 };
 
 /**
+ * Clear the current campaign status in memory if not running.
+ */
+const clearCampaign = () => {
+    if (campaign.running) {
+        return { success: false, error: 'Cannot clear a running campaign.' };
+    }
+    campaign = {
+        id: null,
+        running: false,
+        cancelled: false,
+        mode: 'text',
+        message: '',
+        filePath: null,
+        fileOriginalName: null,
+        fileMimetype: null,
+        customers: [],
+        total: 0,
+        sent: 0,
+        failed: 0,
+        logs: [],
+        startedAt: null,
+        finishedAt: null
+    };
+    return { success: true };
+};
+
+/**
  * Get the current campaign status snapshot.
  */
 const getStatus = () => {
@@ -290,4 +317,4 @@ const getStatus = () => {
     };
 };
 
-module.exports = { startCampaign, cancelCampaign, getStatus };
+module.exports = { startCampaign, cancelCampaign, clearCampaign, getStatus };

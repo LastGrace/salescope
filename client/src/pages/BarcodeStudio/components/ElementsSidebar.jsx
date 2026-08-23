@@ -172,16 +172,6 @@ const ElementsSidebar = ({
                                 })}
                             </div>
                         </div>
-
-                        <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '0.65rem 0.75rem' }}>
-                            <div style={{ fontSize: '0.72rem', color: '#60a5fa', fontWeight: 700, marginBottom: '0.4rem' }}>💡 Quick Tips</div>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', lineHeight: 1.5 }}>
-                                • Click element to select<br />
-                                • Drag to move on canvas<br />
-                                • Arrow keys for fine-tune<br />
-                                • Switch to <strong style={{ color: '#f1f5f9' }}>Fields</strong> tab to insert dynamic data
-                            </div>
-                        </div>
                     </div>
                 )}
 

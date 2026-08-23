@@ -6,15 +6,16 @@ import bwipjs from 'bwip-js';
 export const resolvePlaceholders = (text, data = {}) => {
     if (!text || typeof text !== 'string') return '';
 
-    const store = data.store || {};
-    const product = data.product || {};
+    const store = data.store || data.storeInfo || (data.store_name || data.shop_name ? data : {});
+    const product = data.product || (data.name || data.barcode || data.price ? data : {});
+    const storeName = store.store_name || store.shop_name || store.name || 'SaleScope POS';
 
     const mappings = {
         '{{product_name}}': product.name || 'Sample Product',
         '{{barcode}}': product.barcode || '123456789012',
         '{{sku}}': product.sku || product.barcode || 'SKU-1001',
-        '{{selling_price}}': product.price ? Number(product.price).toFixed(2) : '0.00',
-        '{{mrp}}': product.mrp ? Number(product.mrp).toFixed(2) : (product.price ? Number(product.price).toFixed(2) : '0.00'),
+        '{{selling_price}}': product.selling_price ? Number(product.selling_price).toFixed(2) : (product.price ? Number(product.price).toFixed(2) : '0.00'),
+        '{{mrp}}': product.mrp ? Number(product.mrp).toFixed(2) : (product.selling_price ? Number(product.selling_price).toFixed(2) : (product.price ? Number(product.price).toFixed(2) : '0.00')),
         '{{cost_price}}': product.cost_price ? Number(product.cost_price).toFixed(2) : '0.00',
         '{{brand}}': product.brand || '',
         '{{category}}': product.category || '',
@@ -24,8 +25,9 @@ export const resolvePlaceholders = (text, data = {}) => {
         '{{batch}}': product.batch || '',
         '{{expiry}}': product.expiry || '',
         '{{hsn}}': product.hsn || '',
-        '{{company}}': store.store_name || 'SaleScope',
-        '{{shop_name}}': store.store_name || 'SaleScope',
+        '{{company}}': storeName,
+        '{{shop_name}}': storeName,
+        '{{store_name}}': storeName,
         '{{serial_number}}': product.serial_number || 'SN-001',
         '{{date}}': new Date().toLocaleDateString()
     };

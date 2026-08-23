@@ -12,7 +12,7 @@ const ShortcutModal = ({ onClose }) => {
                 { key: "F1", description: "Start New Bill / Reset" },
                 { key: "Ctrl + S", description: "Save Bill (No Print)" },
                 { key: "Ctrl + Enter", description: "Save & Print Bill" },
-                { key: "Alt + C", description: "Focus Customer Search" },
+                { key: "Alt + C", description: "Customer Details / Focus Search" },
                 { key: "Alt + D", description: "Focus Global Discount" },
                 { key: "` or ~", description: "Toggle Payment Modes" },
                 { key: "F6", description: "Checkout with Cash" },

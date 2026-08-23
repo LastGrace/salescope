@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Download, Upload, Search, Calendar, Filter, CirclePlus, SquarePlus, SquareMinus, Trash, Edit, ShoppingCart } from 'lucide-react';
@@ -137,15 +137,24 @@ const SalesRecords = () => {
     };
 
     const handleExport = () => {
-        // Use server-side export for reliability
-        const token = localStorage.getItem('token');
-        const queryParams = new URLSearchParams({ startDate, endDate, paymentMethod, search, token }).toString();
-        // Check if we are in dev mode (vite proxy handles /api, but window.open needs full url if not proxied correctly, 
-        // usually /api/... works if proxy is set up in vite.config, assuming standard setup)
-        // Actually, let's just use /api/export/sales...
+        if (!sales || sales.length === 0) return toast.error('No sales records to export');
 
-        // We'll use a temporary link to force download without opening new tab if possible, or just window.open
-        window.open(`/api/export/sales?${queryParams}`, '_blank');
+        const data = sales.map(s => ({
+            'Invoice No': s.id,
+            'Customer': s.customer_name || 'Walk-in Customer',
+            'Phone': s.customer_phone || '',
+            'Payment Method': s.payment_method || 'Cash',
+            'Subtotal': parseFloat(s.subtotal || 0).toFixed(2),
+            'Discount': parseFloat(s.discount_total || 0).toFixed(2),
+            'Total Amount': parseFloat(s.total_amount || 0).toFixed(2),
+            'Date': s.created_at ? new Date(s.created_at).toLocaleString() : ''
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Sales Records');
+        XLSX.writeFile(wb, `sales_report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Sales records exported successfully');
     };
 
     return (

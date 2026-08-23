@@ -1,4 +1,4 @@
 module.exports = {
-    APP_VERSION: '2.0.5',
-    CURRENT_SCHEMA_VERSION: 4
+    APP_VERSION: '2.0.6',
+    CURRENT_SCHEMA_VERSION: 5
 };

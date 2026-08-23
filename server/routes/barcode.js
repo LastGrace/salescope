@@ -14,14 +14,60 @@ const parseJsonField = (field) => {
     }
 };
 
+// Helper to auto-create barcode tables if they do not exist
+const ensureBarcodeTablesExist = async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS barcode_presets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                category VARCHAR(100) DEFAULT 'Product Barcode',
+                is_default TINYINT(1) DEFAULT 0,
+                is_favorite TINYINT(1) DEFAULT 0,
+                label_width DECIMAL(6,2) NOT NULL DEFAULT 50.00,
+                label_height DECIMAL(6,2) NOT NULL DEFAULT 25.00,
+                paper_type VARCHAR(50) DEFAULT 'thermal',
+                page_layout JSON,
+                canvas_data JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS printer_profiles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                printer_type VARCHAR(50) DEFAULT 'thermal',
+                dpi INT DEFAULT 203,
+                print_mode VARCHAR(50) DEFAULT 'gap',
+                darkness INT DEFAULT 10,
+                speed INT DEFAULT 3,
+                offset_x DECIMAL(5,2) DEFAULT 0.00,
+                offset_y DECIMAL(5,2) DEFAULT 0.00,
+                feed_direction VARCHAR(50) DEFAULT 'normal',
+                page_size VARCHAR(50) DEFAULT 'Custom',
+                is_default TINYINT(1) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+    } catch (err) {
+        console.error('[BarcodeAPI] ensureBarcodeTablesExist error:', err.message);
+    }
+};
+
 // ── PRESETS API ───────────────────────────────────────────────────
 
 // GET /api/barcode/presets - List all presets
 router.get('/presets', verifyToken, async (req, res) => {
     try {
+        await ensureBarcodeTablesExist();
         const [rows] = await db.query('SELECT * FROM barcode_presets ORDER BY is_default DESC, is_favorite DESC, name ASC');
         const presets = rows.map(r => ({
             ...r,
+            label_width: parseFloat(r.label_width),
+            label_height: parseFloat(r.label_height),
             page_layout: parseJsonField(r.page_layout),
             canvas_data: parseJsonField(r.canvas_data)
         }));
@@ -45,6 +91,8 @@ router.get('/presets/:id', verifyToken, async (req, res) => {
         const r = rows[0];
         res.json({
             ...r,
+            label_width: parseFloat(r.label_width),
+            label_height: parseFloat(r.label_height),
             page_layout: parseJsonField(r.page_layout),
             canvas_data: parseJsonField(r.canvas_data)
         });
@@ -66,7 +114,9 @@ router.post('/presets', verifyToken, async (req, res) => {
             await db.query('UPDATE barcode_presets SET is_default = 0');
         }
 
-        const layoutStr = typeof page_layout === 'string' ? page_layout : JSON.stringify(page_layout || {});
+        const layoutObj = typeof page_layout === 'string' ? JSON.parse(page_layout) : (page_layout || {});
+        if (req.body.corner_radius !== undefined) layoutObj.corner_radius = req.body.corner_radius;
+        const layoutStr = JSON.stringify(layoutObj);
         const canvasStr = typeof canvas_data === 'string' ? canvas_data : JSON.stringify(canvas_data || []);
 
         const [result] = await db.query(`
@@ -222,12 +272,15 @@ router.post('/presets/:id/favorite', verifyToken, async (req, res) => {
 
 // POST /api/barcode/presets/import - Import preset JSON payload
 router.post('/presets/import', verifyToken, async (req, res) => {
-    const { name, category, label_width, label_height, paper_type, page_layout, canvas_data } = req.body;
+    const { name, category, label_width, label_height, paper_type, page_layout, canvas_data, corner_radius } = req.body;
     if (!name || !canvas_data) {
         return res.status(400).json({ message: 'Invalid preset JSON payload' });
     }
 
     try {
+        const layoutObj = typeof page_layout === 'string' ? JSON.parse(page_layout) : (page_layout || {});
+        if (corner_radius !== undefined) layoutObj.corner_radius = corner_radius;
+
         const [result] = await db.query(`
             INSERT INTO barcode_presets
             (name, category, is_default, is_favorite, label_width, label_height, paper_type, page_layout, canvas_data)
@@ -238,7 +291,7 @@ router.post('/presets/import', verifyToken, async (req, res) => {
             label_width || 50.00,
             label_height || 25.00,
             paper_type || 'thermal',
-            JSON.stringify(page_layout || {}),
+            JSON.stringify(layoutObj),
             JSON.stringify(canvas_data || [])
         ]);
 
@@ -255,6 +308,7 @@ router.post('/presets/import', verifyToken, async (req, res) => {
 // GET /api/barcode/printer-profiles
 router.get('/printer-profiles', verifyToken, async (req, res) => {
     try {
+        await ensureBarcodeTablesExist();
         const [rows] = await db.query('SELECT * FROM printer_profiles ORDER BY is_default DESC, name ASC');
         res.json(rows);
     } catch (err) {

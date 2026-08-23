@@ -74,11 +74,31 @@ i+VFtKLjTWYSO0rV2OlIB3fKgwAziorQ3HkGqXHG9GboaXaHTm3Dnar9ndVHyV0u
 iwIDAQAB
 -----END PUBLIC KEY-----`;
 
+function getPhysicalMacAddresses() {
+    const macs = [];
+    const interfaces = os.networkInterfaces();
+    const sortedNames = Object.keys(interfaces).sort();
+    const virtualPattern = /veth|docker|vbox|vmnet|wsl|virtual|tap|tun|vpn|hyper-v|bridge|terredo/i;
+
+    for (const name of sortedNames) {
+        if (virtualPattern.test(name)) continue;
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00') {
+                const upperMac = iface.mac.toUpperCase().trim();
+                if (!macs.includes(upperMac)) {
+                    macs.push(upperMac);
+                }
+            }
+        }
+    }
+    return macs;
+}
+
 function verifyOnlineTokenLocally(token) {
     try {
-        const publicKey = process.env.LIC_SERVER_PUBLIC_KEY 
-            ? process.env.LIC_SERVER_PUBLIC_KEY.replace(/\\n/g, '\n') 
-            : DEFAULT_LIC_SERVER_PUBLIC_KEY;
+        const metaKey = getHiddenMetadata()?.serverPublicKey;
+        const publicKey = metaKey
+            || (process.env.LIC_SERVER_PUBLIC_KEY ? process.env.LIC_SERVER_PUBLIC_KEY.replace(/\\n/g, '\n') : DEFAULT_LIC_SERVER_PUBLIC_KEY);
         
         if (!publicKey) {
             return { valid: false, reason: 'LIC_SERVER_PUBLIC_KEY environment variable is not defined.' };
@@ -89,12 +109,40 @@ function verifyOnlineTokenLocally(token) {
             issuer: 'salescope-licensing-server'
         });
         
-        // Match HWID binding (SHA-256)
+        // Robust HWID binding check across all physical MAC addresses on the machine
         const currentHWID = getHardwareProfile();
-        const hwidString = `BOARD:${currentHWID.motherboard}|CPU:${currentHWID.cpu}|DISK:${currentHWID.disk}|MAC:${currentHWID.mac}`;
-        const localHashedHwid = crypto.createHash('sha256').update(hwidString).digest('hex').toLowerCase();
+        const physicalMacs = getPhysicalMacAddresses();
+        if (currentHWID.mac && !physicalMacs.includes(currentHWID.mac)) {
+            physicalMacs.push(currentHWID.mac);
+        }
         
-        if (decoded.hwid !== localHashedHwid) {
+        let isHwidMatched = false;
+        for (const mac of physicalMacs) {
+            const hwidString = `BOARD:${currentHWID.motherboard}|CPU:${currentHWID.cpu}|DISK:${currentHWID.disk}|MAC:${mac}`;
+            const localHashedHwid = crypto.createHash('sha256').update(hwidString).digest('hex').toLowerCase();
+            if (decoded.hwid === localHashedHwid) {
+                isHwidMatched = true;
+                break;
+            }
+        }
+
+        // Fallback: If MAC changed completely (e.g. USB adapter unplugged), check cached metadata HWID or core components
+        if (!isHwidMatched) {
+            const meta = getHiddenMetadata();
+            if (meta && meta.savedHwid) {
+                const saved = meta.savedHwid;
+                let matchCount = 0;
+                let knownCount = 0;
+                if (saved.motherboard && saved.motherboard !== 'UNKNOWN_BOARD') { knownCount++; if (currentHWID.motherboard === saved.motherboard) matchCount++; }
+                if (saved.cpu && saved.cpu !== 'UNKNOWN_CPU') { knownCount++; if (currentHWID.cpu === saved.cpu) matchCount++; }
+                if (saved.disk && saved.disk !== 'UNKNOWN_DISK') { knownCount++; if (currentHWID.disk === saved.disk) matchCount++; }
+                if (knownCount > 0 && matchCount >= Math.min(2, knownCount)) {
+                    isHwidMatched = true;
+                }
+            }
+        }
+        
+        if (!isHwidMatched) {
             return { valid: false, reason: 'License token belongs to a different hardware profile.' };
         }
         
@@ -108,9 +156,70 @@ function verifyOnlineTokenLocally(token) {
 const getLicenseConfig = () => {
     const serverUrl = process.env.LIC_SERVER_URL || 'https://salescope-api.onrender.com';
     const validationIntervalHours = parseInt(process.env.LIC_VALIDATION_INTERVAL_HOURS || '1', 10);
-    const offlineGraceDays = parseInt(process.env.LIC_OFFLINE_GRACE_DAYS || '3', 10);
+    const offlineGraceDays = parseInt(process.env.LIC_OFFLINE_GRACE_DAYS || '3', 10); // 3-day default offline grace
     return { serverUrl, validationIntervalHours, offlineGraceDays };
 };
+
+/**
+ * Discovers and caches the latest RS256 Public Key from the Licensing Server.
+ */
+async function fetchServerPublicKey() {
+    try {
+        const { serverUrl } = getLicenseConfig();
+        const response = await axios.get(`${serverUrl}/api/license/public-key`, { timeout: 10000 });
+        if (response.data && response.data.publicKey) {
+            const meta = getHiddenMetadata();
+            meta.serverPublicKey = response.data.publicKey;
+            saveHiddenMetadata(meta);
+            return response.data.publicKey;
+        }
+    } catch (e) {
+        // Silent fallback to local cached/default key
+    }
+    return null;
+}
+
+/**
+ * Sends a background heartbeat telemetry ping to update lastSeen & status on lic-server
+ */
+async function sendLicenseHeartbeat() {
+    try {
+        if (!fs.existsSync(LICENSE_FILE)) return;
+        let licenseData;
+        try {
+            licenseData = decryptLicense(fs.readFileSync(LICENSE_FILE, 'utf8'));
+        } catch (e) {}
+
+        if (!licenseData || licenseData.type !== 'online' || !licenseData.token) return;
+
+        const { serverUrl } = getLicenseConfig();
+        const currentHWID = getHardwareProfile();
+        const hwidString = `BOARD:${currentHWID.motherboard}|CPU:${currentHWID.cpu}|DISK:${currentHWID.disk}|MAC:${currentHWID.mac}`;
+
+        await axios.post(`${serverUrl}/api/license/heartbeat`, {
+            token: licenseData.token,
+            hwid: hwidString
+        }, { timeout: 15000 });
+    } catch (e) {
+        // Silent background telemetry failure
+    }
+}
+
+/**
+ * Resolves a descriptive store + host device name for lic-server admin monitoring
+ */
+async function getStoreDeviceName() {
+    let storeName = 'SaleScope POS';
+    try {
+        const db = require('../db');
+        const [rows] = await db.query('SELECT store_name FROM store_settings WHERE id = 1 LIMIT 1');
+        if (rows && rows.length > 0 && rows[0].store_name) {
+            storeName = rows[0].store_name;
+        }
+    } catch (e) {}
+    const host = os.hostname() || 'Device';
+    return `${storeName} (${host})`;
+}
 
 
 // ── Embed RSA-2048 Public Key ──────────────────────────────────────
@@ -129,7 +238,95 @@ mN6ZW2J/Hz6HPZpy9k/RPBmKx6+ujA0UBfciI4rpkjlz8vrzXfkxGY+OcFBZ/O56
 // ── Configuration Paths ─────────────────────────────────────────────
 const LICENSE_FILE = path.join(DATA_DIR, 'license.json');
 const HIDDEN_META_FILE = 'C:\\Users\\Public\\Documents\\.salescope_meta.dat';
+const SYSTEM_LICENSE_BACKUP_FILE = 'C:\\Users\\Public\\Documents\\.salescope_license.dat';
 const META_ENCRYPTION_KEY = 'salescope-secure-token-998'; // Key for hidden metadata encryption
+
+/**
+ * Multi-Location Permanent License Backup & Storage Engine
+ * Saves license data redundantly to:
+ * 1. Primary file (DATA_DIR/license.json)
+ * 2. System backup file (C:\Users\Public\Documents\.salescope_license.dat)
+ * 3. Hidden metadata (.salescope_meta.dat)
+ * 4. Database store_settings table (license_key_data column)
+ */
+function saveStoredLicense(licenseData) {
+    try {
+        const encrypted = encryptLicense(licenseData);
+        // 1. Primary file in DATA_DIR
+        fs.writeFileSync(LICENSE_FILE, encrypted, 'utf8');
+
+        // 2. System backup file in Public Documents
+        try {
+            fs.writeFileSync(SYSTEM_LICENSE_BACKUP_FILE, encrypted, 'utf8');
+        } catch (e) {}
+
+        // 3. Hidden metadata backup
+        try {
+            const meta = getHiddenMetadata();
+            meta.savedLicenseData = encrypted;
+            saveHiddenMetadata(meta);
+        } catch (e) {}
+
+        // 4. Database backup
+        try {
+            const db = require('../db');
+            db.query('UPDATE store_settings SET license_key_data = ? WHERE id = 1', [encrypted]).catch(() => {});
+        } catch (e) {}
+    } catch (e) {
+        console.error('[License] Failed to save stored license backup:', e.message);
+    }
+}
+
+/**
+ * Auto-recovers license from redundant backup sources if primary file is lost or corrupt.
+ */
+async function autoRestoreLicense() {
+    let rawEncrypted = null;
+
+    // Check Backup 1: System Public Documents file
+    if (fs.existsSync(SYSTEM_LICENSE_BACKUP_FILE)) {
+        try {
+            rawEncrypted = fs.readFileSync(SYSTEM_LICENSE_BACKUP_FILE, 'utf8');
+        } catch (e) {}
+    }
+
+    // Check Backup 2: Hidden Metadata
+    if (!rawEncrypted) {
+        try {
+            const meta = getHiddenMetadata();
+            if (meta && meta.savedLicenseData) {
+                rawEncrypted = meta.savedLicenseData;
+            }
+        } catch (e) {}
+    }
+
+    // Check Backup 3: Database
+    if (!rawEncrypted) {
+        try {
+            const db = require('../db');
+            const [rows] = await db.query('SELECT license_key_data FROM store_settings WHERE id = 1 LIMIT 1');
+            if (rows && rows.length > 0 && rows[0].license_key_data) {
+                rawEncrypted = rows[0].license_key_data;
+            }
+        } catch (e) {}
+    }
+
+    if (rawEncrypted) {
+        try {
+            const decrypted = decryptLicense(rawEncrypted);
+            if (decrypted && decrypted.key) {
+                // Silently auto-restore primary file
+                try {
+                    fs.writeFileSync(LICENSE_FILE, rawEncrypted, 'utf8');
+                } catch (e) {}
+                console.log('[License Auto-Recovery] Successfully auto-restored license key from backup storage.');
+                return decrypted;
+            }
+        } catch (e) {}
+    }
+
+    return null;
+}
 
 /**
  * Executes a shell command on Windows and cleans the output
@@ -216,15 +413,25 @@ const prewarmHardwareProfileAsync = async () => {
         }
 
         let mac = '';
-        const interfaces = os.networkInterfaces();
-        for (const name of Object.keys(interfaces)) {
-            for (const iface of interfaces[name]) {
-                if (iface.family === 'IPv4' && !iface.internal && iface.mac !== '00:00:00:00:00:00') {
-                    mac = iface.mac.toUpperCase();
-                    break;
-                }
+        const physicalMacs = getPhysicalMacAddresses();
+        if (physicalMacs.length > 0) {
+            mac = physicalMacs[0];
+        }
+
+        const metaBackup = getHiddenMetadata();
+        if (metaBackup && metaBackup.savedHwid) {
+            if ((!motherboard || motherboard.includes('UNKNOWN')) && metaBackup.savedHwid.motherboard) {
+                motherboard = metaBackup.savedHwid.motherboard;
             }
-            if (mac) break;
+            if ((!cpu || cpu.includes('UNKNOWN')) && metaBackup.savedHwid.cpu) {
+                cpu = metaBackup.savedHwid.cpu;
+            }
+            if ((!disk || disk.includes('UNKNOWN')) && metaBackup.savedHwid.disk) {
+                disk = metaBackup.savedHwid.disk;
+            }
+            if (!mac && metaBackup.savedHwid.mac) {
+                mac = metaBackup.savedHwid.mac;
+            }
         }
 
         cachedHWID = {
@@ -234,6 +441,11 @@ const prewarmHardwareProfileAsync = async () => {
             mac: mac ? mac.trim() : 'UNKNOWN_MAC'
         };
         
+        if (cachedHWID.motherboard !== 'UNKNOWN_BOARD' || cachedHWID.cpu !== 'UNKNOWN_CPU') {
+            metaBackup.savedHwid = cachedHWID;
+            saveHiddenMetadata(metaBackup);
+        }
+
         return cachedHWID;
     } catch (e) {
         console.error('[License] Failed to prewarm hardware profile asynchronously:', e.message);
@@ -274,17 +486,27 @@ const getHardwareProfile = () => {
         disk = execPowerShellCmd('Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID=\'C:\'" | Select-Object -ExpandProperty VolumeSerialNumber');
     }
 
-    // D. Primary Active MAC Address
+    // D. Primary Active MAC Address (filtered)
     let mac = '';
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-            if (iface.family === 'IPv4' && !iface.internal && iface.mac !== '00:00:00:00:00:00') {
-                mac = iface.mac.toUpperCase();
-                break;
-            }
+    const physicalMacs = getPhysicalMacAddresses();
+    if (physicalMacs.length > 0) {
+        mac = physicalMacs[0];
+    }
+
+    const metaBackup = getHiddenMetadata();
+    if (metaBackup && metaBackup.savedHwid) {
+        if ((!motherboard || motherboard.includes('UNKNOWN')) && metaBackup.savedHwid.motherboard) {
+            motherboard = metaBackup.savedHwid.motherboard;
         }
-        if (mac) break;
+        if ((!cpu || cpu.includes('UNKNOWN')) && metaBackup.savedHwid.cpu) {
+            cpu = metaBackup.savedHwid.cpu;
+        }
+        if ((!disk || disk.includes('UNKNOWN')) && metaBackup.savedHwid.disk) {
+            disk = metaBackup.savedHwid.disk;
+        }
+        if (!mac && metaBackup.savedHwid.mac) {
+            mac = metaBackup.savedHwid.mac;
+        }
     }
 
     cachedHWID = {
@@ -293,6 +515,11 @@ const getHardwareProfile = () => {
         disk: disk ? disk.toUpperCase().trim() : 'UNKNOWN_DISK',
         mac: mac ? mac.trim() : 'UNKNOWN_MAC'
     };
+
+    if (cachedHWID.motherboard !== 'UNKNOWN_BOARD' || cachedHWID.cpu !== 'UNKNOWN_CPU') {
+        metaBackup.savedHwid = cachedHWID;
+        saveHiddenMetadata(metaBackup);
+    }
 
     return cachedHWID;
 };
@@ -378,6 +605,8 @@ const saveHiddenMetadata = (meta) => {
 let lastTouchTime = 0;
 const TOUCH_THROTTLE_MS = 60000; // 60 seconds
 
+const CLOCK_BUFFER_MS = 10 * 60 * 1000; // 10 minutes tolerance for NTP sync & sleep/wake
+
 const touchLastRunTime = async () => {
     const now = Date.now();
     // Throttle: skip if we wrote less than 60s ago
@@ -387,12 +616,14 @@ const touchLastRunTime = async () => {
 
     const meta = getHiddenMetadata(true); // force-refresh from disk for accuracy
 
-    // Catch backward clock-tampering
-    if (now < meta.lastRunTimestamp) {
+    // Catch backward clock-tampering (beyond 10 minutes tolerance)
+    if (now < (meta.lastRunTimestamp - CLOCK_BUFFER_MS)) {
         meta.lockout = true;
         console.error('[License] CLOCK TAMPERING DETECTED! Lockout triggered.');
     } else {
-        meta.lastRunTimestamp = now;
+        if (now > meta.lastRunTimestamp) {
+            meta.lastRunTimestamp = now;
+        }
     }
     saveHiddenMetadata(meta);
     cachedMeta = meta;
@@ -497,11 +728,13 @@ const performFullLicenseCheck = async (forceSync) => {
     const meta = getHiddenMetadata();
     const now = Date.now();
 
+    const CLOCK_BUFFER_MS = 10 * 60 * 1000; // 10 minutes buffer for NTP time sync
+
     // Enforce clock tampering lockout
-    if (meta.lockout || now < meta.lastRunTimestamp) {
+    if (meta.lockout || now < (meta.lastRunTimestamp - CLOCK_BUFFER_MS)) {
         return {
             status: 'clock_tampered',
-            reason: 'System clock has been set backward. Please correct your PC system time.'
+            reason: 'System clock has been set backward significantly. Please correct your PC system time.'
         };
     }
 
@@ -511,7 +744,7 @@ const performFullLicenseCheck = async (forceSync) => {
         const [settings] = await db.query('SELECT UNIX_TIMESTAMP(updated_at) AS updated_at_unix FROM store_settings WHERE id = 1 LIMIT 1');
         if (settings.length > 0) {
             const dbUpdatedAt = settings[0].updated_at_unix * 1000;
-            if (now < dbUpdatedAt - 60000) { // 1 min buffer for minor sync deviance
+            if (now < (dbUpdatedAt - CLOCK_BUFFER_MS)) { // 10 min buffer for minor sync deviance
                 meta.lockout = true;
                 saveHiddenMetadata(meta);
                 return {
@@ -525,13 +758,16 @@ const performFullLicenseCheck = async (forceSync) => {
     }
 
     if (!fs.existsSync(LICENSE_FILE)) {
-        await touchLastRunTime();
-        return {
-            status: 'trial_expired',
-            daysLeft: 0,
-            billsLeft: 0,
-            reason: 'Please activate your software license key.'
-        };
+        const restored = await autoRestoreLicense();
+        if (!restored) {
+            await touchLastRunTime();
+            return {
+                status: 'trial_expired',
+                daysLeft: 0,
+                billsLeft: 0,
+                reason: 'Please activate your software license key.'
+            };
+        }
     }
 
     let licenseData = null;
@@ -539,6 +775,10 @@ const performFullLicenseCheck = async (forceSync) => {
         licenseData = decryptLicense(fs.readFileSync(LICENSE_FILE, 'utf8'));
     } catch (e) {
         // Malformed license file
+    }
+
+    if (!licenseData || !licenseData.key) {
+        licenseData = await autoRestoreLicense();
     }
 
     if (!licenseData || !licenseData.key) {
@@ -576,7 +816,7 @@ const performFullLicenseCheck = async (forceSync) => {
                 licenseData.expiresAt = response.data.expiresAt;
                 licenseData.payload = decodedPayload;
                 
-                fs.writeFileSync(LICENSE_FILE, encryptLicense(licenseData), 'utf8');
+                saveStoredLicense(licenseData);
                 
                 meta.lockout = false;
                 meta.lastRunTimestamp = Date.now();
@@ -631,9 +871,9 @@ const performFullLicenseCheck = async (forceSync) => {
                 }, { timeout: 45000 }); // 45 second timeout to allow Render cold starts
                 
                 if (response.data && response.data.valid) {
-                    // Update cache state
+                    // Update cache state & backup storage
                     licenseData.lastVerified = Date.now();
-                    fs.writeFileSync(LICENSE_FILE, encryptLicense(licenseData), 'utf8');
+                    saveStoredLicense(licenseData);
                     await touchLastRunTime();
                     
                     return {
@@ -647,8 +887,7 @@ const performFullLicenseCheck = async (forceSync) => {
                         reason: 'Software is fully activated (online validated).'
                     };
                 } else {
-                    // Revoked or inactive by admin on the server! Lockdown!
-                    try { fs.unlinkSync(LICENSE_FILE); } catch (err) {}
+                    // Server explicitly responded invalid (revoked by admin)
                     await touchLastRunTime();
                     return {
                         status: 'invalid',
@@ -656,54 +895,50 @@ const performFullLicenseCheck = async (forceSync) => {
                     };
                 }
             } catch (error) {
-                // If the server explicitly rejected the license (e.g. 401 Unauthorized, revoked, expired)
-                if (error.response && error.response.status === 401) {
-                    try { fs.unlinkSync(LICENSE_FILE); } catch (err) {}
+                // Check if the server explicitly rejected the validation (e.g., 401 Unauthorized due to revoked/expired license)
+                if (error.response && (error.response.status === 401 || error.response.status === 400)) {
                     await touchLastRunTime();
                     return {
                         status: 'invalid',
-                        reason: error.response.data?.error || 'License revoked, expired, or disabled by server administrator.'
+                        reason: error.response.data?.error || 'License revoked or expired by server administrator.'
                     };
                 }
 
-                // Online check failed (network downtime or server down)
-                // Check if we are still within the offline grace period tolerance!
-                if (daysSinceVerification <= offlineGraceDays) {
-                    // Fallback to local signature verification
-                    const localVerif = verifyOnlineTokenLocally(licenseData.token);
-                    if (localVerif.valid) {
-                        await touchLastRunTime();
-                        const warningGraceLeft = Math.max(0, Math.ceil(offlineGraceDays - daysSinceVerification));
-                        return {
-                            status: 'licensed',
-                            payload: {
-                                issuedTo: licenseData.payload?.customerName || 'Premium Subscriber',
-                                expiry: licenseData.expiresAt,
-                                type: 'online'
-                            },
-                            daysLeft,
-                            reason: `Offline mode. Server unreachable. Connect online within ${warningGraceLeft} days to prevent lockout.`
-                        };
-                    } else {
-                        await touchLastRunTime();
-                        return {
-                            status: 'invalid',
-                            reason: `Local signature check failed: ${localVerif.reason}`
-                        };
-                    }
-                } else {
-                    // Offline grace period exceeded! Block POS access
+                // Online check failed (network downtime, Render cold start, or server unreachable)
+                
+                // Enforce strictly 3-day offline threshold
+                if (daysSinceVerification > offlineGraceDays) {
                     await touchLastRunTime();
                     return {
                         status: 'invalid',
-                        reason: `Offline grace period of ${offlineGraceDays} days exceeded. Connect to the internet to verify status.`
+                        reason: `Software has been offline for more than ${offlineGraceDays} days. Please connect to the internet to verify your license status.`
+                    };
+                }
+
+                // When network disconnects, as long as activation key hasn't passed expiry date and is within 3 days, STAY LICENSED!
+                if (expiryDate >= today) {
+                    await touchLastRunTime();
+                    return {
+                        status: 'licensed',
+                        payload: {
+                            issuedTo: licenseData.payload?.customerName || 'Premium Subscriber',
+                            expiry: licenseData.expiresAt,
+                            type: 'online'
+                        },
+                        daysLeft,
+                        reason: 'Software is fully activated (Offline mode).'
+                    };
+                } else {
+                    await touchLastRunTime();
+                    return {
+                        status: 'invalid',
+                        reason: `License expired on ${licenseData.expiresAt}.`
                     };
                 }
             }
         } else {
-            // Under 3 days, do local JWT verification
-            const localVerif = verifyOnlineTokenLocally(licenseData.token);
-            if (localVerif.valid) {
+            // Under validation interval, check expiration date
+            if (expiryDate >= today) {
                 await touchLastRunTime();
                 return {
                     status: 'licensed',
@@ -719,7 +954,7 @@ const performFullLicenseCheck = async (forceSync) => {
                 await touchLastRunTime();
                 return {
                     status: 'invalid',
-                    reason: `Local verification failed: ${localVerif.reason}`
+                    reason: `License expired on ${licenseData.expiresAt}.`
                 };
             }
         }
@@ -775,11 +1010,12 @@ const activateLicense = async (keyString) => {
         const hwidString = `BOARD:${currentHWID.motherboard}|CPU:${currentHWID.cpu}|DISK:${currentHWID.disk}|MAC:${currentHWID.mac}`;
         
         try {
+            const deviceName = await getStoreDeviceName();
             // Activate online against lic-server
             const response = await axios.post(`${serverUrl}/api/license/activate`, {
                 license_key: keyString.trim(),
                 hwid: hwidString,
-                device_name: os.hostname() || 'Unknown-Device'
+                device_name: deviceName
             }, { timeout: 45000 });
             
             if (response.data && response.data.success) {
@@ -790,7 +1026,7 @@ const activateLicense = async (keyString) => {
                         type: 'pending_online',
                         hwid: hwidString
                     };
-                    fs.writeFileSync(LICENSE_FILE, encryptLicense(licenseData), 'utf8');
+                    saveStoredLicense(licenseData);
                     await touchLastRunTime();
                     
                     return {
@@ -811,8 +1047,8 @@ const activateLicense = async (keyString) => {
                     payload: decodedPayload
                 };
                 
-                // Write encrypted license to file
-                fs.writeFileSync(LICENSE_FILE, encryptLicense(licenseData), 'utf8');
+                // Write encrypted license to primary file + backups
+                saveStoredLicense(licenseData);
                 
                 // Clear clock-tampering lockout upon successful cryptographic activation
                 const meta = getHiddenMetadata();
@@ -848,8 +1084,8 @@ const activateLicense = async (keyString) => {
             type: 'offline'
         };
 
-        // Save key to license.json
-        fs.writeFileSync(LICENSE_FILE, encryptLicense(licenseData), 'utf8');
+        // Save key to primary file + backups
+        saveStoredLicense(licenseData);
         
         // Clear clock-tampering lockout upon successful cryptographic activation
         const meta = getHiddenMetadata();
@@ -895,6 +1131,16 @@ const deactivateLicense = async () => {
         }
 
         try { fs.unlinkSync(LICENSE_FILE); } catch (err) {}
+        try { fs.unlinkSync(SYSTEM_LICENSE_BACKUP_FILE); } catch (err) {}
+        try {
+            const meta = getHiddenMetadata();
+            delete meta.savedLicenseData;
+            saveHiddenMetadata(meta);
+        } catch (e) {}
+        try {
+            const db = require('../db');
+            await db.query('UPDATE store_settings SET license_key_data = NULL WHERE id = 1');
+        } catch (e) {}
     }
     activeLicenseStatus = null;
     await touchLastRunTime();
@@ -905,19 +1151,25 @@ const deactivateLicense = async () => {
  * Starts a background periodic validation check for online licenses
  */
 function startLicenseScheduler() {
-    console.log('[License Scheduler] Starting background licensing scheduler (interval: 15 minutes)...');
+    console.log('[License Scheduler] Starting background licensing scheduler & telemetry stream...');
     
-    // Perform initial validation 30 seconds after startup so DB is fully ready
+    // Initial validation and public key discovery after 15 seconds
     setTimeout(async () => {
         try {
-            console.log('[License Scheduler] Running initial background license re-validation...');
-            await getLicenseStatus(true); // Force sync
+            await fetchServerPublicKey();
+            await sendLicenseHeartbeat();
+            await getLicenseStatus(true);
         } catch (e) {
-            console.error('[License Scheduler] Initial verification error:', e.message);
+            console.error('[License Scheduler] Initial sync error:', e.message);
         }
-    }, 30000);
+    }, 15000);
 
-    // Run every 15 minutes
+    // Send heartbeat telemetry every 5 minutes to keep admin dashboard live
+    setInterval(async () => {
+        await sendLicenseHeartbeat();
+    }, 5 * 60 * 1000);
+
+    // Full license re-validation every 30 minutes
     setInterval(async () => {
         try {
             console.log('[License Scheduler] Running background license re-validation...');
@@ -925,8 +1177,17 @@ function startLicenseScheduler() {
         } catch (e) {
             console.error('[License Scheduler] Periodic re-validation error:', e.message);
         }
-    }, 15 * 60 * 1000); 
+    }, 30 * 60 * 1000); 
 }
+
+const getRawLicenseKey = () => {
+    try {
+        const licenseData = decryptLicense(fs.readFileSync(LICENSE_FILE, 'utf8'));
+        return licenseData?.key || '';
+    } catch (e) {
+        return '';
+    }
+};
 
 module.exports = {
     getHardwareProfile,
@@ -936,6 +1197,7 @@ module.exports = {
     verifyLicenseKey,
     getLicenseStatus,
     activateLicense,
+    getRawLicenseKey,
     deactivateLicense,
     startLicenseScheduler
 };

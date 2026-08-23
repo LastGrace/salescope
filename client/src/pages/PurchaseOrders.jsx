@@ -87,8 +87,22 @@ const PurchaseOrders = () => {
     };
 
     const handleExport = () => {
-        const token = localStorage.getItem('token');
-        window.open(`/api/export/purchase-orders?token=${token}`, '_blank');
+        if (!orders || orders.length === 0) return toast.error('No purchase orders to export');
+
+        const data = orders.map(o => ({
+            'PO Number': `PO-${o.id}`,
+            'Vendor': o.vendor_name || 'N/A',
+            'Total Items': o.total_items || 0,
+            'Total Amount': parseFloat(o.total_amount || 0).toFixed(2),
+            'Status': o.status || 'Pending',
+            'Date Created': o.created_at ? new Date(o.created_at).toLocaleDateString() : ''
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Purchase Orders');
+        XLSX.writeFile(wb, `purchase_orders_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Purchase orders exported successfully');
     };
 
     const handleImport = (e) => {

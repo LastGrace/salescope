@@ -143,11 +143,32 @@ function createWindow() {
         });
     }
 
-    // Prevent accidental downloads of the app's HTML (e.g. Alt+Clicking a React Router Link)
+    // Handle file downloads by opening native OS Save File Dialog
     mainWindow.webContents.session.on('will-download', (event, item, webContents) => {
-        if (item.getMimeType() === 'text/html' || item.getURL().includes('localhost:') || item.getURL().includes('127.0.0.1:')) {
+        // Prevent accidental downloads of internal HTML pages (e.g. Alt+Clicking a link)
+        if (item.getMimeType() === 'text/html') {
             event.preventDefault();
-            console.log('[Main] Prevented accidental download of internal route:', item.getURL());
+            console.log('[Main] Prevented accidental download of HTML page:', item.getURL());
+            return;
+        }
+
+        const { dialog } = require('electron');
+        const defaultFilename = item.getFilename() || 'export';
+
+        try {
+            const savePath = dialog.showSaveDialogSync(mainWindow, {
+                title: 'Save File As',
+                defaultPath: defaultFilename,
+                properties: ['showOverwriteConfirmation']
+            });
+
+            if (savePath) {
+                item.setSavePath(savePath);
+            } else {
+                item.cancel();
+            }
+        } catch (err) {
+            console.error('[Main] Error showing save dialog:', err);
         }
     });
 

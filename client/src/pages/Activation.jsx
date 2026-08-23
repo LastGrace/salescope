@@ -5,7 +5,7 @@ import { Shield, KeyRound, Copy, Check, AlertTriangle, RefreshCw, LogOut, Calend
 
 const Activation = ({ licenseStatus, onActivated }) => {
   const navigate = useNavigate();
-  const [activationKey, setActivationKey] = React.useState('');
+  const [activationKey, setActivationKey] = React.useState(licenseStatus?.previousKey || '');
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState('');
   const [successMsg, setSuccessMsg] = React.useState('');
@@ -181,22 +181,6 @@ const Activation = ({ licenseStatus, onActivated }) => {
                 <div className="info-card-value">100% Secure Offline</div>
               </div>
             </div>
-
-            {/* Hardware Profile ID Box */}
-            <div className="hwid-section compact-hwid">
-              <h3>Locked Hardware Profile ID:</h3>
-              <div className="hwid-box">
-                <span className="hwid-text">{hwidString}</span>
-                <button 
-                  className={`copy-btn ${isCopied ? 'copied' : ''}`} 
-                  onClick={handleCopyHWID}
-                  title="Copy Profile ID"
-                >
-                  {isCopied ? <Check size={16} /> : <Copy size={16} />}
-                </button>
-              </div>
-            </div>
-
             {/* Action buttons */}
             <div className="license-dashboard-actions">
               <button 
@@ -308,27 +292,6 @@ const Activation = ({ licenseStatus, onActivated }) => {
                 </div>
               </div>
             )}
-
-            {/* Hardware Fingerprint Section */}
-            <div className="hwid-section">
-              <h3>Your Hardware Profile ID:</h3>
-              <div className="hwid-box">
-                <span className="hwid-text">{hwidString}</span>
-                <button 
-                  className={`copy-btn ${isCopied ? 'copied' : ''}`} 
-                  onClick={handleCopyHWID}
-                  title="Copy Profile ID"
-                  type="button"
-                >
-                  {isCopied ? <Check size={16} /> : <Copy size={16} />}
-                  {isCopied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              <p className="hwid-instruction">
-                Please share the hardware profile ID above with the SaleScope team to generate your secure license key.
-              </p>
-            </div>
-
             {/* License Input Form */}
             <form onSubmit={handleActivate} className="activation-form">
               <div className="input-group">

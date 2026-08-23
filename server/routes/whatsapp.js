@@ -241,6 +241,12 @@ router.post("/campaign/cancel", (req, res) => {
     res.json(result);
 });
 
+// Clear completed/cancelled campaign status from active memory
+router.post("/campaign/clear", (req, res) => {
+    const result = campaignService.clearCampaign();
+    res.json(result);
+});
+
 // GET all blocklisted numbers
 router.get("/blocklist", async (req, res) => {
     try {

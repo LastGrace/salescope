@@ -15,92 +15,15 @@ import ConfirmModal from '../components/ConfirmModal';
 import QuantityInput from '../components/QuantityInput';
 
 const POSNew = () => {
-    // --- State Management ---
-    const [products, setProducts] = useState([]);
-    const [activeCartIndex, setActiveCartIndex] = useState(-1);
-    const [isCheckingOut, setIsCheckingOut] = useState(false);
+    // 1. DOM Refs
+    const barcodeInputRef = useRef(null);
+    const discountInputRef = useRef(null);
+    const customerInputRef = useRef(null);
+    const endOfCartRef = useRef(null);
+
+    // 2. Router & Cart Context
     const location = useLocation();
     const navigate = useNavigate();
-    const [editingSaleId, setEditingSaleId] = useState(null);
-    // Bill Date State (Default Today Local)
-    const [billDate, setBillDate] = useState(new Date().toLocaleDateString('en-CA'));
-
-    // Split Search States
-    const [cashReceived, setCashReceived] = useState(''); // New State for Change Calculator
-    const [barcodeInput, setBarcodeInput] = useState('');
-    const [productSearchInput, setProductSearchInput] = useState('');
-    const [customerNameInput, setCustomerNameInput] = useState('');
-    const [customerPhoneInput, setCustomerPhoneInput] = useState('');
-
-    // Sound FX State (Scanner Feedback)
-    const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('pos_scanner_sound') !== 'false');
-
-    // Web Audio API Sound Synthesizer (No external asset files needed)
-    const playScannerBeep = (type = 'success') => {
-        if (!soundEnabled) return;
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return;
-            const ctx = new AudioCtx();
-
-            if (type === 'success') {
-                // High crisp beep (1200Hz, 70ms)
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, ctx.currentTime);
-                gain.gain.setValueAtTime(0.15, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.07);
-            } else if (type === 'error') {
-                // Low double error beep (320Hz, 140ms)
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(320, ctx.currentTime);
-                osc.frequency.setValueAtTime(240, ctx.currentTime + 0.07);
-                gain.gain.setValueAtTime(0.2, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.14);
-            }
-        } catch (e) {
-            // Ignore audio errors if browser blocks autoplay context
-        }
-    };
-
-    // Layout States
-    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
-
-    // Existing Logic States
-    const [loyaltySettings, setLoyaltySettings] = useState(null);
-    const [couponCode, setCouponCode] = useState('');
-    const [creditNoteCode, setCreditNoteCode] = useState('');
-    const [customerCreditNotes, setCustomerCreditNotes] = useState([]);
-    const [customerCreditBills, setCustomerCreditBills] = useState([]);
-    const [showQuickCustomerModal, setShowQuickCustomerModal] = useState(false);
-    const [showCustomerDetailModal, setShowCustomerDetailModal] = useState(false);
-    const [quickCustomerForm, setQuickCustomerForm] = useState({ name: '', phone: '' });
-
-    const [storeSettings, setStoreSettings] = useState(null);
-    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-
-    // Confirmation Modal State
-    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { }, type: 'danger' });
-
-    useEffect(() => {
-        axios.get('/api/loyalty/settings').then(res => setLoyaltySettings(res.data)).catch(err => console.error('Loyalty fetch error:', err));
-        axios.get('/api/settings/store').then(res => setStoreSettings(res.data)).catch(err => console.error('Store settings fetch error:', err));
-    }, []);
-
-
-
-    // Cart Context
     const {
         cart, addToCart: addToCartContext, removeFromCart, updateQuantity, updateDiscount, clearCart, cartTotal, setCart,
         customer: selectedCustomer, setCustomer: setSelectedCustomer,
@@ -111,38 +34,61 @@ const POSNew = () => {
         paymentMethod, setPaymentMethod
     } = useCart();
 
-    // Split Payment — local state with localStorage persistence (NOT from context)
+    // 3. State Management
+    const [products, setProducts] = useState([]);
+    const [customers, setCustomers] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [showProductResults, setShowProductResults] = useState(false);
+    const [filteredCustomers, setFilteredCustomers] = useState([]);
+    const [showCustomerResults, setShowCustomerResults] = useState(false);
+
+    const [activeCartIndex, setActiveCartIndex] = useState(-1);
+    const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [editingSaleId, setEditingSaleId] = useState(null);
+    const [billDate, setBillDate] = useState(new Date().toLocaleDateString('en-CA'));
+    const [nextBillId, setNextBillId] = useState('...');
+
+    const [cashReceived, setCashReceived] = useState('');
+    const [barcodeInput, setBarcodeInput] = useState('');
+    const [productSearchInput, setProductSearchInput] = useState('');
+    const [customerNameInput, setCustomerNameInput] = useState('');
+    const [customerPhoneInput, setCustomerPhoneInput] = useState('');
+
+    const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('pos_scanner_sound') !== 'false');
+    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+
+    const [loyaltySettings, setLoyaltySettings] = useState(null);
+    const [couponCode, setCouponCode] = useState('');
+    const [creditNoteCode, setCreditNoteCode] = useState('');
+    const [customerCreditNotes, setCustomerCreditNotes] = useState([]);
+    const [customerCreditBills, setCustomerCreditBills] = useState([]);
+    const [customerHistory, setCustomerHistory] = useState([]);
+
+    const [showQuickCustomerModal, setShowQuickCustomerModal] = useState(false);
+    const [showCustomerDetailModal, setShowCustomerDetailModal] = useState(false);
+    const [showHeldBillsModal, setShowHeldBillsModal] = useState(false);
+    const [viewingBill, setViewingBill] = useState(null);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+    const [quickCustomerForm, setQuickCustomerForm] = useState({ name: '', phone: '' });
+    const [storeSettings, setStoreSettings] = useState(null);
+    const [heldBills, setHeldBills] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('heldBills')) || []; } catch { return []; }
+    });
+
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { }, type: 'danger' });
+
     const [isSplitPayment, setIsSplitPayment] = useState(() => {
         try { return JSON.parse(localStorage.getItem('posn_isSplitPayment')) || false; } catch { return false; }
     });
     const [splitAmounts, setSplitAmounts] = useState(() => {
         try { return JSON.parse(localStorage.getItem('posn_splitAmounts')) || { cash: '', card: '', upi: '', pay_later: '' }; } catch { return { cash: '', card: '', upi: '', pay_later: '' }; }
     });
-    useEffect(() => {
-        localStorage.setItem('posn_isSplitPayment', JSON.stringify(isSplitPayment));
-        localStorage.setItem('posn_splitAmounts', JSON.stringify(splitAmounts));
-    }, [isSplitPayment, splitAmounts]);
 
-    // Global Discount Local UI State
-    const [globalDiscountType, setLocalGlobalDiscountType] = useState(globalDiscount.type || 'rs');
-    const [globalDiscountValue, setLocalGlobalDiscountValue] = useState(globalDiscount.value || '');
+    const [globalDiscountType, setLocalGlobalDiscountType] = useState(globalDiscount?.type || 'rs');
+    const [globalDiscountValue, setLocalGlobalDiscountValue] = useState(globalDiscount?.value || '');
 
-    useEffect(() => {
-        setLocalGlobalDiscountType(globalDiscount.type);
-        setLocalGlobalDiscountValue(globalDiscount.value > 0 ? globalDiscount.value : '');
-    }, [globalDiscount]);
-
-    const updateGlobalDiscountValue = (val) => {
-        setLocalGlobalDiscountValue(val);
-        setGlobalDiscount({ type: globalDiscountType, value: parseFloat(val) || 0 });
-    };
-
-    const updateGlobalDiscountType = (type) => {
-        setLocalGlobalDiscountType(type);
-        setGlobalDiscount({ type: type, value: parseFloat(globalDiscountValue) || 0 });
-    };
-
-    // --- Calculations ---
+    // 4. Calculations (Memos)
     const subtotal = React.useMemo(() => cart.reduce((acc, item) => acc + (item.price * item.quantity), 0), [cart]);
 
     const itemDiscountsSum = React.useMemo(() => cart.reduce((acc, item) => {
@@ -155,9 +101,9 @@ const POSNew = () => {
 
     const afterItemDiscounts = React.useMemo(() => subtotal - itemDiscountsSum, [subtotal, itemDiscountsSum]);
 
-    const globalDiscountAmount = React.useMemo(() => globalDiscount.type === '%'
-        ? (afterItemDiscounts * (globalDiscount.value || 0) / 100)
-        : (globalDiscount.value || 0), [afterItemDiscounts, globalDiscount]);
+    const globalDiscountAmount = React.useMemo(() => globalDiscount?.type === '%'
+        ? (afterItemDiscounts * (globalDiscount?.value || 0) / 100)
+        : (globalDiscount?.value || 0), [afterItemDiscounts, globalDiscount]);
 
     const couponDiscountAmount = React.useMemo(() => appliedCoupon ? appliedCoupon.discount : 0, [appliedCoupon]);
 
@@ -171,7 +117,134 @@ const POSNew = () => {
     const finalTotal = React.useMemo(() => Math.max(0, afterItemDiscounts - globalDiscountAmount - couponDiscountAmount - loyaltyDiscountAmount - creditNoteDeduction),
         [afterItemDiscounts, globalDiscountAmount, couponDiscountAmount, loyaltyDiscountAmount, creditNoteDeduction]);
 
-    // --- Handlers ---
+    const taxRate = 0;
+    const taxAmount = (subtotal - itemDiscountsSum) * (taxRate / 100);
+    const totalBeforeRound = subtotal - itemDiscountsSum - globalDiscountAmount - couponDiscountAmount - loyaltyDiscountAmount - creditNoteDeduction + taxAmount;
+    const roundOff = Math.round(totalBeforeRound) - totalBeforeRound;
+    const finalTotalRounded = Math.round(totalBeforeRound);
+    const totalQty = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+    // 5. Sound Synthesizer & Helper Functions
+    const playScannerBeep = (type = 'success') => {
+        if (!soundEnabled) return;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+
+            if (type === 'success') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.07);
+            } else if (type === 'error') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(320, ctx.currentTime);
+                osc.frequency.setValueAtTime(240, ctx.currentTime + 0.07);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.14);
+            }
+        } catch (e) {
+            // Ignore audio context errors
+        }
+    };
+
+    const updateGlobalDiscountValue = (val) => {
+        setLocalGlobalDiscountValue(val);
+        setGlobalDiscount({ type: globalDiscountType, value: parseFloat(val) || 0 });
+    };
+
+    const updateGlobalDiscountType = (type) => {
+        setLocalGlobalDiscountType(type);
+        setGlobalDiscount({ type: type, value: parseFloat(globalDiscountValue) || 0 });
+    };
+
+    const fetchProducts = async () => {
+        try {
+            const res = await axios.get('/api/products?limit=9999999&lite=true');
+            const data = res.data.products ? res.data.products : (Array.isArray(res.data) ? res.data : []);
+            setProducts(data);
+        } catch (err) { console.error(err); }
+    };
+
+    const fetchCustomers = async () => {
+        try { const res = await axios.get('/api/customers'); setCustomers(res.data); } catch (err) { console.error(err); }
+    };
+
+    const fetchNextBillId = async () => {
+        try { const res = await axios.get('/api/sales/meta/next-id'); setNextBillId(res.data.nextId); } catch (e) { console.error(e); }
+    };
+
+    const fetchCustomerHistory = async (id) => {
+        try { const res = await axios.get(`/api/customers/${id}/history`); setCustomerHistory(res.data || []); } catch (e) { setCustomerHistory([]); }
+    };
+
+    const fetchCustomerCreditNotes = async (id) => {
+        try { const res = await axios.get(`/api/credit-notes/customer/${id}`); setCustomerCreditNotes(res.data || []); } catch (e) { setCustomerCreditNotes([]); }
+    };
+
+    const fetchCustomerCreditBills = async (id) => {
+        try { const res = await axios.get(`/api/customers/${id}/credit-bills`); setCustomerCreditBills(res.data || []); } catch (e) { setCustomerCreditBills([]); }
+    };
+
+    const selectCustomer = (customer) => {
+        setSelectedCustomer(customer);
+        setCustomerNameInput(customer.name);
+        setCustomerPhoneInput(customer.phone || '');
+        setShowCustomerResults(false);
+
+        fetchCustomerHistory(customer.id);
+        fetchCustomerCreditNotes(customer.id);
+        fetchCustomerCreditBills(customer.id);
+    };
+
+    const resetCustomer = () => {
+        setSelectedCustomer(null);
+        setCustomerNameInput('');
+        setCustomerPhoneInput('');
+        setCustomerHistory([]);
+        setCustomerCreditNotes([]);
+        setCustomerCreditBills([]);
+        setPointsToRedeem('');
+        setIsRightSidebarOpen(false);
+    };
+
+    const addNewCustomerShortcut = () => {
+        setQuickCustomerForm({ name: customerNameInput, phone: customerPhoneInput });
+        setShowQuickCustomerModal(true);
+    };
+
+    const saveQuickCustomer = async (e) => {
+        if (e) e.preventDefault();
+        if (!quickCustomerForm.name || !quickCustomerForm.name.trim()) return toast.error('Customer name is required');
+
+        const phoneResult = normalizePhone(quickCustomerForm.phone);
+        if (phoneResult.error) return toast.error(phoneResult.error);
+
+        try {
+            const res = await axios.post('/api/customers', { ...quickCustomerForm, phone: phoneResult.phone });
+            const newCustomer = { ...quickCustomerForm, phone: phoneResult.phone, id: res.data.id, loyalty_points: 0 };
+            setCustomers(prev => [...prev, newCustomer]);
+            selectCustomer(newCustomer);
+            setShowQuickCustomerModal(false);
+            toast.success('Customer added and selected');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to add customer');
+        }
+    };
+
     const applyCoupon = async () => {
         if (!couponCode) return;
         try {
@@ -215,17 +288,154 @@ const POSNew = () => {
 
     const removeCreditNote = () => setAppliedCreditNote(null);
 
+    const addDirectItem = () => {
+        const id = 'manual_' + Date.now();
+        setCart(prev => [...prev, {
+            id,
+            name: '',
+            barcode: '',
+            price: 0,
+            quantity: 1,
+            discountType: 'rs',
+            discountValue: 0,
+            discountPercent: 0,
+            discountRs: 0,
+            isManual: true
+        }]);
+    };
+
+    const updateManualItem = (id, field, value) => {
+        setCart(prev => prev.map(item => {
+            if (item.id !== id) return item;
+
+            const newItem = { ...item, [field]: value };
+
+            if (field === 'price') {
+                const price = Number(value || 0);
+                const quantity = Number(item.quantity || 1);
+                const total = price * quantity;
+
+                if (item.discountType === '%') {
+                    newItem.discountRs = (total * (item.discountPercent || 0)) / 100;
+                } else {
+                    newItem.discountPercent = total > 0 ? ((item.discountRs || 0) / total) * 100 : 0;
+                }
+            }
+
+            return newItem;
+        }));
+    };
+
+    const deleteHeldBill = (id, silent = false) => {
+        if (silent) {
+            const updated = heldBills.filter(b => b.id !== id);
+            setHeldBills(updated);
+            localStorage.setItem('heldBills', JSON.stringify(updated));
+            return;
+        }
+
+        setConfirmModal({
+            isOpen: true,
+            title: 'Delete Held Bill',
+            message: 'Are you sure you want to delete this held bill? This action cannot be undone.',
+            type: 'danger',
+            onConfirm: () => {
+                const updated = heldBills.filter(b => b.id !== id);
+                setHeldBills(updated);
+                localStorage.setItem('heldBills', JSON.stringify(updated));
+                toast.success('Held bill deleted');
+            }
+        });
+    };
+
+    const executeResumeBill = (bill) => {
+        setCart(bill.cart);
+        setSelectedCustomer(bill.customer);
+        if (bill.customer) {
+            setCustomerNameInput(bill.customer.name);
+            setCustomerPhoneInput(bill.customer.phone || '');
+            fetchCustomerHistory(bill.customer.id);
+            fetchCustomerCreditNotes(bill.customer.id);
+            fetchCustomerCreditBills(bill.customer.id);
+        }
+
+        deleteHeldBill(bill.id, true);
+        setShowHeldBillsModal(false);
+        toast.success('Bill resumed');
+    };
+
+    const resumeBill = (bill) => {
+        if (cart.length > 0) {
+            setConfirmModal({
+                isOpen: true,
+                title: 'Clear Current Cart?',
+                message: 'You have items in your current cart. Resuming this bill will clear the current cart. Continue?',
+                type: 'danger',
+                onConfirm: () => {
+                    executeResumeBill(bill);
+                }
+            });
+            return;
+        }
+
+        executeResumeBill(bill);
+    };
+
+    const holdBill = () => {
+        if (cart.length === 0) return toast.error('Cart is empty');
+
+        const bill = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            cart,
+            customer: selectedCustomer,
+            total: finalTotalRounded
+        };
+
+        const updated = [...heldBills, bill];
+        setHeldBills(updated);
+        localStorage.setItem('heldBills', JSON.stringify(updated));
+
+        clearCart();
+        setCustomerHistory([]);
+        setCustomerCreditNotes([]);
+        setCustomerCreditBills([]);
+        setBarcodeInput('');
+        setProductSearchInput('');
+        setCustomerNameInput('');
+        setCustomerPhoneInput('');
+        setCouponCode('');
+        setAppliedCoupon(null);
+        toast.success('Bill put on Hold');
+    };
+
+    const handleViewBill = async (bill) => {
+        const toastId = toast.loading('Loading bill details...');
+        try {
+            const res = await axios.get(`/api/sales/${bill.id}`);
+            const fullBill = res.data;
+            if (!fullBill.customer_name && selectedCustomer) {
+                fullBill.customer_name = selectedCustomer.name;
+                fullBill.customer_phone = selectedCustomer.phone;
+            }
+            setViewingBill(fullBill);
+            toast.dismiss(toastId);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to load bill details', { id: toastId });
+        }
+    };
+
+    // 6. Action Callbacks
     const clearWholeState = React.useCallback(() => {
-        clearCart(); // Context handles cart, customer, coupon, payments
+        clearCart();
         setCustomerHistory([]);
         setCustomerCreditNotes([]);
         setCustomerCreditBills([]);
 
-        // Reset local split payment state
         setIsSplitPayment(false);
         setSplitAmounts({ cash: '', card: '', upi: '', pay_later: '' });
 
-        // Reset Inputs
         setBarcodeInput('');
         setProductSearchInput('');
         setCustomerNameInput('');
@@ -233,13 +443,11 @@ const POSNew = () => {
 
         setEditingSaleId(null);
         setCouponCode('');
-        // Reset date to today on new bill (Local Time)
         setBillDate(new Date().toLocaleDateString('en-CA'));
         fetchNextBillId();
         setIsRightSidebarOpen(false);
     }, [clearCart]);
 
-    // --- Handlers ---
     const handleCheckout = React.useCallback(async (shouldPrint = false, paymentMethodOverride = null) => {
         if (isCheckingOut) return;
         if (cart.length === 0) return toast.error('Cart is empty');
@@ -247,20 +455,16 @@ const POSNew = () => {
         setIsCheckingOut(true);
 
         let payments = [];
-
-        // Use override if provided, effectively disabling split payment logic for that specific transaction
         const effectiveMethod = paymentMethodOverride || paymentMethod;
         const effectiveSplit = paymentMethodOverride ? false : isSplitPayment;
 
         if (effectiveSplit) {
-            // Read split amounts directly from DOM as failsafe against stale React state
             const domSplit = {};
             ['cash', 'card', 'upi', 'pay_later'].forEach(m => {
                 const el = document.querySelector(`[data-split-method="${m}"]`);
                 domSplit[m] = el ? el.value : '';
             });
 
-            // Use DOM values (most reliable) with React state as fallback
             const sa = {
                 cash: domSplit.cash || splitAmounts.cash || '',
                 card: domSplit.card || splitAmounts.card || '',
@@ -273,7 +477,7 @@ const POSNew = () => {
                 (parseFloat(sa.upi) || 0) +
                 (parseFloat(sa.pay_later) || 0);
 
-            if (Math.abs(totalSplit - finalTotal) > 1) { // 1 rupee tolerance
+            if (Math.abs(totalSplit - finalTotal) > 1) {
                 setIsCheckingOut(false);
                 return toast.error(`Payment mismatch. Total: ${finalTotal.toFixed(2)}, Split: ${totalSplit.toFixed(2)}`);
             }
@@ -310,7 +514,7 @@ const POSNew = () => {
             loyalty_amount: loyaltyDiscountAmount || 0,
             points_redeemed: parseFloat(pointsToRedeem) || 0,
             credit_note_code: appliedCreditNote?.code || null,
-            created_at: billDate, // Send selected date
+            created_at: billDate,
             payments: payments,
             status: 'completed'
         };
@@ -322,9 +526,8 @@ const POSNew = () => {
                 toast.success('Sale updated');
             } else {
                 res = await axios.post('/api/sales', payload);
-                // Trigger success animation
                 setShowSuccessPopup(true);
-                setTimeout(() => setShowSuccessPopup(false), 1500); // Reduced from 2500
+                setTimeout(() => setShowSuccessPopup(false), 1500);
             }
 
             clearWholeState();
@@ -338,9 +541,177 @@ const POSNew = () => {
         } finally {
             setIsCheckingOut(false);
         }
-    }, [cart, paymentMethod, isSplitPayment, finalTotal, selectedCustomer, globalDiscountAmount, appliedCoupon, loyaltyDiscountAmount, pointsToRedeem, appliedCreditNote, creditNoteDeduction, editingSaleId, isCheckingOut, billDate, clearWholeState]);
+    }, [cart, paymentMethod, isSplitPayment, finalTotal, selectedCustomer, globalDiscountAmount, appliedCoupon, loyaltyDiscountAmount, pointsToRedeem, appliedCreditNote, creditNoteDeduction, editingSaleId, isCheckingOut, billDate, clearWholeState, splitAmounts, afterItemDiscounts, couponDiscountAmount]);
 
-    // --- Keyboard Shortcuts ---
+    const addToCart = React.useCallback((product) => {
+        addToCartContext(product);
+        playScannerBeep('success');
+        const index = cart.findIndex(item => item.id == product.id);
+        if (index !== -1) {
+            setActiveCartIndex(index);
+        } else {
+            setActiveCartIndex(cart.length);
+        }
+        setProductSearchInput('');
+        setBarcodeInput('');
+        setTimeout(() => {
+            if (barcodeInputRef.current) {
+                barcodeInputRef.current.focus();
+            }
+        }, 50);
+    }, [addToCartContext, cart, soundEnabled]);
+
+    const handleBarcodeKey = (e) => {
+        if (e.key === 'Enter') {
+            const code = barcodeInput.toUpperCase().trim();
+            if (!code) return;
+            const product = products.find(p => p.barcode === code);
+            if (product) {
+                addToCart(product);
+            } else {
+                playScannerBeep('error');
+                toast.error('Product not found by barcode');
+            }
+        }
+    };
+
+    // 7. useEffect Hooks
+    useEffect(() => {
+        fetchProducts();
+        fetchCustomers();
+        fetchNextBillId();
+        axios.get('/api/loyalty/settings').then(res => setLoyaltySettings(res.data)).catch(err => console.error('Loyalty fetch error:', err));
+        axios.get('/api/settings/store').then(res => setStoreSettings(res.data)).catch(err => console.error('Store settings fetch error:', err));
+        if (barcodeInputRef.current) barcodeInputRef.current.focus();
+    }, []);
+
+    useEffect(() => {
+        if (selectedCustomer) {
+            setCustomerNameInput(selectedCustomer.name);
+            setCustomerPhoneInput(selectedCustomer.phone || '');
+            fetchCustomerHistory(selectedCustomer.id);
+            fetchCustomerCreditNotes(selectedCustomer.id);
+            fetchCustomerCreditBills(selectedCustomer.id);
+        } else {
+            setCustomerHistory([]);
+            setCustomerCreditNotes([]);
+            setCustomerCreditBills([]);
+        }
+    }, [selectedCustomer?.id]);
+
+    useEffect(() => {
+        localStorage.setItem('posn_isSplitPayment', JSON.stringify(isSplitPayment));
+        localStorage.setItem('posn_splitAmounts', JSON.stringify(splitAmounts));
+    }, [isSplitPayment, splitAmounts]);
+
+    useEffect(() => {
+        if (globalDiscount) {
+            setLocalGlobalDiscountType(globalDiscount.type || 'rs');
+            setLocalGlobalDiscountValue(globalDiscount.value > 0 ? globalDiscount.value : '');
+        }
+    }, [globalDiscount]);
+
+    useEffect(() => {
+        if (productSearchInput.trim().length > 1) {
+            const q = productSearchInput.toLowerCase();
+            const res = products.filter(p =>
+                p.name.toLowerCase().includes(q) ||
+                (p.category && p.category.toLowerCase().includes(q)) ||
+                (p.sub_category && p.sub_category.toLowerCase().includes(q))
+            );
+            setFilteredProducts(res);
+            setShowProductResults(true);
+        } else {
+            setShowProductResults(false);
+        }
+    }, [productSearchInput, products]);
+
+    useEffect(() => {
+        const qName = customerNameInput.toLowerCase();
+        const qPhone = customerPhoneInput;
+
+        if (selectedCustomer && (customerNameInput === selectedCustomer.name || customerPhoneInput === selectedCustomer.phone)) {
+            setShowCustomerResults(false);
+            return;
+        }
+
+        if (qName.length > 1 || qPhone.length > 2) {
+            const res = customers.filter(c => {
+                const matchName = qName ? (c.name && c.name.toLowerCase().includes(qName)) : true;
+                const matchPhone = qPhone ? (c.phone && c.phone.includes(qPhone)) : true;
+                return matchName && matchPhone;
+            });
+            setFilteredCustomers(res);
+            setShowCustomerResults(true);
+        } else {
+            setShowCustomerResults(false);
+        }
+    }, [customerNameInput, customerPhoneInput, customers, selectedCustomer]);
+
+    useEffect(() => {
+        if (endOfCartRef.current) {
+            endOfCartRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    }, [cart.length]);
+
+    useEffect(() => {
+        if (cart.length === 0) {
+            setActiveCartIndex(-1);
+        } else if (activeCartIndex >= cart.length) {
+            setActiveCartIndex(cart.length - 1);
+        }
+    }, [cart.length, activeCartIndex]);
+
+    useEffect(() => {
+        if (activeCartIndex !== -1) {
+            const element = document.querySelector(`.cart-item-row-${activeCartIndex}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }, [activeCartIndex]);
+
+    useEffect(() => {
+        if (location.state?.cartItems) {
+            const sanitizedCart = location.state.cartItems.map(item => ({
+                ...item,
+                price: Number(item.price) || 0,
+                quantity: Number(item.quantity) || Number(item.count) || 1,
+                discountValue: Number(item.discountValue) || 0,
+                discountType: item.discountType || 'rs',
+                id: item.id || Date.now()
+            }));
+
+            setCart(sanitizedCart);
+
+            if (location.state.customerId) {
+                axios.get('/api/customers').then(res => {
+                    const c = res.data.find(cust => cust.id === location.state.customerId);
+                    if (c) selectCustomer(c);
+                }).catch(err => console.error('Error fetching customer for edit:', err));
+            } else {
+                resetCustomer();
+            }
+
+            if (location.state.editingSale) {
+                setEditingSaleId(location.state.editingSale.id);
+                if (location.state.editingSale.discount_total > 0) {
+                    setGlobalDiscount({ type: 'fixed', value: parseFloat(location.state.editingSale.discount_total) });
+                } else {
+                    setGlobalDiscount({ type: 'fixed', value: 0 });
+                }
+
+                if (location.state.editingSale.paymentMethod) {
+                    setPaymentMethod(location.state.editingSale.paymentMethod);
+                }
+            } else {
+                setEditingSaleId(null);
+            }
+
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (isCheckingOut) return;
@@ -351,9 +722,25 @@ const POSNew = () => {
                 activeEl.isContentEditable
             );
 
-            // Esc: Reset inputs and focus barcode input
+            // Esc: Close Modals or Reset inputs and focus barcode input
             if (e.key === 'Escape') {
                 e.preventDefault();
+                if (showCustomerDetailModal) {
+                    setShowCustomerDetailModal(false);
+                    return;
+                }
+                if (showHeldBillsModal) {
+                    setShowHeldBillsModal(false);
+                    return;
+                }
+                if (showQuickCustomerModal) {
+                    setShowQuickCustomerModal(false);
+                    return;
+                }
+                if (viewingBill) {
+                    setViewingBill(null);
+                    return;
+                }
                 setBarcodeInput('');
                 setProductSearchInput('');
                 setCustomerNameInput('');
@@ -390,10 +777,12 @@ const POSNew = () => {
                 return;
             }
 
-            // Alt + C: Focus Customer search name field
+            // Alt + C: Open Customer Details Modal (if customer selected) or Focus Customer search
             if (e.altKey && (e.key === 'c' || e.key === 'C')) {
                 e.preventDefault();
-                if (customerInputRef.current) {
+                if (selectedCustomer) {
+                    setShowCustomerDetailModal(prev => !prev);
+                } else if (customerInputRef.current) {
                     customerInputRef.current.focus();
                     customerInputRef.current.select();
                 }
@@ -521,433 +910,7 @@ const POSNew = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [cart, paymentMethod, activeCartIndex, clearWholeState, handleCheckout, isCheckingOut]);
-
-
-    // Handle incoming cart from Edit Bill
-    useEffect(() => {
-        if (location.state?.cartItems) {
-            // Sanitize incoming data
-            const sanitizedCart = location.state.cartItems.map(item => ({
-                ...item,
-                price: Number(item.price) || 0,
-                quantity: Number(item.quantity) || Number(item.count) || 1,
-                discountValue: Number(item.discountValue) || 0,
-                discountType: item.discountType || 'rs',
-                id: item.id || Date.now()
-            }));
-
-            setCart(sanitizedCart);
-
-            // Handle Customer
-            if (location.state.customerId) {
-                axios.get('/api/customers').then(res => {
-                    const c = res.data.find(cust => cust.id === location.state.customerId);
-                    if (c) selectCustomer(c);
-                }).catch(err => console.error('Error fetching customer for edit:', err));
-            } else {
-                resetCustomer();
-            }
-
-            // Handle Editing Mode
-            if (location.state.editingSale) {
-                setEditingSaleId(location.state.editingSale.id);
-                if (location.state.editingSale.discount_total > 0) {
-                    setGlobalDiscount({ type: 'fixed', value: parseFloat(location.state.editingSale.discount_total) });
-                } else {
-                    setGlobalDiscount({ type: 'fixed', value: 0 });
-                }
-
-                if (location.state.editingSale.paymentMethod) {
-                    setPaymentMethod(location.state.editingSale.paymentMethod);
-                }
-            } else {
-                setEditingSaleId(null);
-            }
-
-            // Clear state so it doesn't re-apply on refresh
-            window.history.replaceState({}, document.title);
-        }
-    }, [location.state]);
-
-    // Wrapper for addToCart
-    const addToCart = React.useCallback((product) => {
-        addToCartContext(product);
-        playScannerBeep('success');
-        const index = cart.findIndex(item => item.id == product.id);
-        if (index !== -1) {
-            setActiveCartIndex(index);
-        } else {
-            setActiveCartIndex(cart.length);
-        }
-        setProductSearchInput('');
-        setBarcodeInput('');
-        setTimeout(() => {
-            if (barcodeInputRef.current) {
-                barcodeInputRef.current.focus();
-            }
-        }, 50);
-    }, [addToCartContext, cart, soundEnabled]);
-
-    // --- Search & Input Handlers ---
-
-    // 1. Barcode Handler
-    const handleBarcodeKey = (e) => {
-        if (e.key === 'Enter') {
-            const code = barcodeInput.toUpperCase().trim();
-            if (!code) return;
-            const product = products.find(p => p.barcode === code);
-            if (product) {
-                addToCart(product);
-            } else {
-                playScannerBeep('error');
-                toast.error('Product not found by barcode');
-            }
-        }
-    };
-
-    // 2. Product Search Handler (Fuzzy)
-    const [filteredProducts, setFilteredProducts] = useState([]);
-    const [showProductResults, setShowProductResults] = useState(false);
-
-    useEffect(() => {
-        if (productSearchInput.trim().length > 1) {
-            const q = productSearchInput.toLowerCase();
-            const res = products.filter(p =>
-                p.name.toLowerCase().includes(q) ||
-                (p.category && p.category.toLowerCase().includes(q)) ||
-                (p.sub_category && p.sub_category.toLowerCase().includes(q))
-            );
-            setFilteredProducts(res);
-            setShowProductResults(true);
-        } else {
-            setShowProductResults(false);
-        }
-    }, [productSearchInput, products]);
-
-    // 3. Customer Handlers
-    const [customers, setCustomers] = useState([]);
-    const [filteredCustomers, setFilteredCustomers] = useState([]);
-    const [showCustomerResults, setShowCustomerResults] = useState(false);
-
-    useEffect(() => {
-        const qName = customerNameInput.toLowerCase();
-        const qPhone = customerPhoneInput;
-
-        // Prevent showing results if the input exactly matches the selected customer (avoids re-opening on select)
-        if (selectedCustomer && (customerNameInput === selectedCustomer.name || customerPhoneInput === selectedCustomer.phone)) {
-            setShowCustomerResults(false);
-            return;
-        }
-
-        if (qName.length > 1 || qPhone.length > 2) {
-            const res = customers.filter(c => {
-                const matchName = qName ? (c.name && c.name.toLowerCase().includes(qName)) : true;
-                const matchPhone = qPhone ? (c.phone && c.phone.includes(qPhone)) : true;
-                return matchName && matchPhone;
-            });
-            setFilteredCustomers(res);
-            setShowCustomerResults(true);
-        } else {
-            setShowCustomerResults(false);
-        }
-    }, [customerNameInput, customerPhoneInput, customers, selectedCustomer]);
-
-
-    const selectCustomer = (customer) => {
-        setSelectedCustomer(customer);
-        setCustomerNameInput(customer.name);
-        setCustomerPhoneInput(customer.phone || '');
-        setShowCustomerResults(false);
-
-        fetchCustomerHistory(customer.id);
-        fetchCustomerCreditNotes(customer.id);
-        fetchCustomerCreditBills(customer.id);
-
-        // setIsRightSidebarOpen(true); // Disabled auto-open
-    };
-
-    // --- Effects & Data Fetching ---
-    const barcodeInputRef = useRef(null);
-    const discountInputRef = useRef(null);
-    const customerInputRef = useRef(null);
-    const endOfCartRef = useRef(null);
-
-    // Auto-scroll to bottom of cart when new item is added
-    useEffect(() => {
-        if (endOfCartRef.current) {
-            endOfCartRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }
-    }, [cart.length]);
-
-    // Keep activeCartIndex in bounds
-    useEffect(() => {
-        if (cart.length === 0) {
-            setActiveCartIndex(-1);
-        } else if (activeCartIndex >= cart.length) {
-            setActiveCartIndex(cart.length - 1);
-        }
-    }, [cart.length, activeCartIndex]);
-
-    // Auto-scroll selected keyboard row into view
-    useEffect(() => {
-        if (activeCartIndex !== -1) {
-            const element = document.querySelector(`.cart-item-row-${activeCartIndex}`);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        }
-    }, [activeCartIndex]);
-
-    // Initial Data Fetch
-    useEffect(() => {
-        fetchProducts();
-        fetchCustomers();
-        fetchNextBillId();
-        if (barcodeInputRef.current) barcodeInputRef.current.focus();
-    }, []); // Only on mount
-
-    // Customer Specific Data Fetch
-    useEffect(() => {
-        if (selectedCustomer) {
-            setCustomerNameInput(selectedCustomer.name);
-            setCustomerPhoneInput(selectedCustomer.phone || '');
-            fetchCustomerHistory(selectedCustomer.id);
-            fetchCustomerCreditNotes(selectedCustomer.id);
-            fetchCustomerCreditBills(selectedCustomer.id);
-        } else {
-            setCustomerHistory([]);
-            setCustomerCreditNotes([]);
-            setCustomerCreditBills([]);
-        }
-    }, [selectedCustomer?.id]);
-
-    const fetchProducts = async () => {
-        try {
-            // Use lite=true to fetch only essential fields to prevent Network Error
-            const res = await axios.get('/api/products?limit=9999&lite=true');
-            // Backend in lite mode returns flat array or { products: [] } depending on implementation, handle both
-            const data = res.data.products ? res.data.products : (Array.isArray(res.data) ? res.data : []);
-            setProducts(data);
-        } catch (err) { console.error(err); }
-    };
-    const fetchCustomers = async () => {
-        try { const res = await axios.get('/api/customers'); setCustomers(res.data); } catch (err) { console.error(err); }
-    };
-    const [nextBillId, setNextBillId] = useState('...');
-    const fetchNextBillId = async () => {
-        try { const res = await axios.get('/api/sales/meta/next-id'); setNextBillId(res.data.nextId); } catch (e) { console.error(e); }
-    };
-
-    // Customer History
-    const [customerHistory, setCustomerHistory] = useState([]);
-    const fetchCustomerHistory = async (id) => {
-        try { const res = await axios.get(`/api/customers/${id}/history`); setCustomerHistory(res.data || []); } catch (e) { setCustomerHistory([]); }
-    };
-    const fetchCustomerCreditNotes = async (id) => {
-        try { const res = await axios.get(`/api/credit-notes/customer/${id}`); setCustomerCreditNotes(res.data || []); } catch (e) { setCustomerCreditNotes([]); }
-    };
-    const fetchCustomerCreditBills = async (id) => {
-        try { const res = await axios.get(`/api/customers/${id}/credit-bills`); setCustomerCreditBills(res.data || []); } catch (e) { setCustomerCreditBills([]); }
-    };
-
-    // Modals
-    const [viewingBill, setViewingBill] = useState(null);
-    const [heldBills, setHeldBills] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('heldBills')) || []; } catch { return []; }
-    });
-    const [showHeldBillsModal, setShowHeldBillsModal] = useState(false);
-
-    // Add Manual Item logic
-    const addDirectItem = () => {
-        const id = 'manual_' + Date.now();
-        setCart(prev => [...prev, {
-            id,
-            name: '',
-            barcode: '',
-            price: 0,
-            quantity: 1,
-            discountType: 'rs',
-            discountValue: 0,
-            discountPercent: 0,
-            discountRs: 0,
-            isManual: true
-        }]);
-    };
-
-    // Manual Item Update
-    const updateManualItem = (id, field, value) => {
-        setCart(prev => prev.map(item => {
-            if (item.id !== id) return item;
-
-            const newItem = { ...item, [field]: value };
-
-            // Recalculate discounts if price changes
-            if (field === 'price') {
-                const price = Number(value || 0);
-                const quantity = Number(item.quantity || 1);
-                const total = price * quantity;
-
-                if (item.discountType === '%') {
-                    newItem.discountRs = (total * (item.discountPercent || 0)) / 100;
-                } else {
-                    newItem.discountPercent = total > 0 ? ((item.discountRs || 0) / total) * 100 : 0;
-                }
-            }
-
-            return newItem;
-        }));
-    };
-
-    const addNewCustomerShortcut = () => {
-        setQuickCustomerForm({ name: customerNameInput, phone: customerPhoneInput });
-        setShowQuickCustomerModal(true);
-    };
-
-    const saveQuickCustomer = async (e) => {
-        if (e) e.preventDefault();
-        if (!quickCustomerForm.name || !quickCustomerForm.name.trim()) return toast.error('Customer name is required');
-
-        // Unified phone validation
-        const phoneResult = normalizePhone(quickCustomerForm.phone);
-        if (phoneResult.error) return toast.error(phoneResult.error);
-
-        try {
-            const res = await axios.post('/api/customers', { ...quickCustomerForm, phone: phoneResult.phone });
-            const newCustomer = { ...quickCustomerForm, phone: phoneResult.phone, id: res.data.id, loyalty_points: 0 };
-            setCustomers(prev => [...prev, newCustomer]);
-            selectCustomer(newCustomer);
-            setShowQuickCustomerModal(false);
-            toast.success('Customer added and selected');
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to add customer');
-        }
-    };
-
-    // --- Hold/Unhold Logic ---
-    const holdBill = () => {
-        if (cart.length === 0) return toast.error('Cart is empty');
-
-        const bill = {
-            id: Date.now(),
-            timestamp: new Date().toISOString(),
-            cart,
-            customer: selectedCustomer,
-            total: finalTotalRounded
-        };
-
-        const updated = [...heldBills, bill];
-        setHeldBills(updated);
-        localStorage.setItem('heldBills', JSON.stringify(updated));
-
-        clearCart();
-        setCustomerHistory([]);
-        setCustomerCreditNotes([]);
-        setCustomerCreditBills([]);
-        setBarcodeInput('');
-        setProductSearchInput('');
-        setCustomerNameInput('');
-        setCustomerPhoneInput('');
-        setCouponCode('');
-        setAppliedCoupon(null);
-        toast.success('Bill put on Hold');
-    };
-
-    const resumeBill = (bill) => {
-        if (cart.length > 0) {
-            setConfirmModal({
-                isOpen: true,
-                title: 'Clear Current Cart?',
-                message: 'You have items in your current cart. Resuming this bill will clear the current cart. Continue?',
-                type: 'danger',
-                onConfirm: () => {
-                    executeResumeBill(bill);
-                }
-            });
-            return;
-        }
-
-        executeResumeBill(bill);
-    };
-
-    const executeResumeBill = (bill) => {
-        setCart(bill.cart);
-        setSelectedCustomer(bill.customer);
-        if (bill.customer) {
-            setCustomerNameInput(bill.customer.name);
-            setCustomerPhoneInput(bill.customer.phone || '');
-            fetchCustomerHistory(bill.customer.id);
-            fetchCustomerCreditNotes(bill.customer.id);
-            fetchCustomerCreditBills(bill.customer.id);
-        }
-
-        deleteHeldBill(bill.id, true);
-        setShowHeldBillsModal(false);
-        toast.success('Bill resumed');
-    };
-
-    const deleteHeldBill = (id, silent = false) => {
-        if (silent) {
-            const updated = heldBills.filter(b => b.id !== id);
-            setHeldBills(updated);
-            localStorage.setItem('heldBills', JSON.stringify(updated));
-            return;
-        }
-
-        setConfirmModal({
-            isOpen: true,
-            title: 'Delete Held Bill',
-            message: 'Are you sure you want to delete this held bill? This action cannot be undone.',
-            type: 'danger',
-            onConfirm: () => {
-                const updated = heldBills.filter(b => b.id !== id);
-                setHeldBills(updated);
-                localStorage.setItem('heldBills', JSON.stringify(updated));
-                toast.success('Held bill deleted');
-            }
-        });
-    };
-
-    // Calculate Totals with Tax/Rounding
-    const taxRate = 0; // Default 0% for now
-    const taxAmount = (subtotal - itemDiscountsSum) * (taxRate / 100);
-    const totalBeforeRound = subtotal - itemDiscountsSum - globalDiscountAmount - couponDiscountAmount - loyaltyDiscountAmount - creditNoteDeduction + taxAmount;
-    const roundOff = Math.round(totalBeforeRound) - totalBeforeRound;
-    const finalTotalRounded = Math.round(totalBeforeRound);
-
-    // --- Render ---
-    const totalQty = cart.reduce((acc, item) => acc + item.quantity, 0);
-
-    // Reset Customer
-    const resetCustomer = () => {
-        setSelectedCustomer(null);
-        setCustomerNameInput('');
-        setCustomerPhoneInput('');
-        setCustomerHistory([]);
-        setCustomerCreditNotes([]);
-        setCustomerCreditBills([]);
-        setPointsToRedeem('');
-        setIsRightSidebarOpen(false);
-    };
-
-    // --- View Bill (with Full Details Fetch) ---
-    const handleViewBill = async (bill) => {
-        const toastId = toast.loading('Loading bill details...');
-        try {
-            const res = await axios.get(`/api/sales/${bill.id}`);
-            // Ensure customer details are present (fetch from API might have them, but fallback to selectedCustomer if needed)
-            const fullBill = res.data;
-            if (!fullBill.customer_name && selectedCustomer) {
-                fullBill.customer_name = selectedCustomer.name;
-                fullBill.customer_phone = selectedCustomer.phone;
-            }
-            setViewingBill(fullBill);
-            toast.dismiss(toastId);
-        } catch (error) {
-            console.error(error);
-            toast.error('Failed to load bill details', { id: toastId });
-        }
-    };
+    }, [cart, paymentMethod, activeCartIndex, clearWholeState, handleCheckout, isCheckingOut, selectedCustomer, showCustomerDetailModal, showHeldBillsModal, showQuickCustomerModal, viewingBill, updateQuantity, removeFromCart]);
 
     // --- Render ---
     return (
@@ -1024,6 +987,11 @@ const POSNew = () => {
                                         value={customerPhoneInput}
                                         onChange={e => setCustomerPhoneInput(e.target.value)}
                                     />
+                                    {selectedCustomer && (
+                                        <button className="posn-input-action" title="View Customer Details (Alt + C)" onClick={() => setShowCustomerDetailModal(true)}>
+                                            <Eye size={14} />
+                                        </button>
+                                    )}
                                     {(selectedCustomer || customerNameInput || customerPhoneInput) && (
                                         <button className="posn-input-action danger" title="Clear Customer" onClick={resetCustomer}>
                                             <X size={14} />
@@ -1466,12 +1434,22 @@ const POSNew = () => {
                     {selectedCustomer ? (
                         <div className="customer-detail-flow">
                             <section className="customer-info-card">
-                                <div className="customer-main">
-                                    <div className="avatar-placeholder">{selectedCustomer.name[0]}</div>
-                                    <div className="text">
-                                        <h4>{selectedCustomer.name}</h4>
-                                        <p>{selectedCustomer.phone}</p>
+                                <div className="customer-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div className="avatar-placeholder">{selectedCustomer.name[0]}</div>
+                                        <div className="text">
+                                            <h4>{selectedCustomer.name}</h4>
+                                            <p>{selectedCustomer.phone}</p>
+                                        </div>
                                     </div>
+                                    <button 
+                                        className="view-btn sm" 
+                                        onClick={() => setShowCustomerDetailModal(true)} 
+                                        title="View Customer Details (Alt + C)"
+                                        style={{ padding: '6px', borderRadius: '6px', cursor: 'pointer' }}
+                                    >
+                                        <Eye size={16} />
+                                    </button>
                                 </div>
                                 <div className="stats-grid">
                                     <div className="stat-item">
@@ -1632,6 +1610,25 @@ const POSNew = () => {
                 <CustomerDetailModal
                     customer={selectedCustomer}
                     onClose={() => setShowCustomerDetailModal(false)}
+                    onUpdate={async () => {
+                        fetchCustomers();
+                        if (selectedCustomer?.id) {
+                            fetchCustomerHistory(selectedCustomer.id);
+                            fetchCustomerCreditNotes(selectedCustomer.id);
+                            fetchCustomerCreditBills(selectedCustomer.id);
+                            try {
+                                const res = await axios.get('/api/customers');
+                                const updated = (res.data || []).find(c => c.id === selectedCustomer.id);
+                                if (updated) {
+                                    setSelectedCustomer(updated);
+                                    setCustomerNameInput(updated.name);
+                                    setCustomerPhoneInput(updated.phone || '');
+                                }
+                            } catch (e) {
+                                console.error('Error refreshing customer data:', e);
+                            }
+                        }
+                    }}
                 />
             )}
 

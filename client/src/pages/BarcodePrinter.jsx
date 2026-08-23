@@ -1,36 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
-    Printer, Scan, Search, Trash2, X, Eye, Layers
+    Printer, Scan, Search, Trash2, X, Layers, ZoomIn, ZoomOut, RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BUILTIN_TEMPLATES } from './BarcodeStudio/components/PresetManagerModal';
-import LivePrintPreviewModal from './BarcodeStudio/components/LivePrintPreviewModal';
+import { isElementVisible } from './BarcodeStudio/utils/barcodeRenderer';
+import { getPrintPageStyle, getCalculatedRollWidth } from './BarcodeStudio/utils/printEngine';
+import LabelElementRenderer from './BarcodeStudio/components/LabelElementRenderer';
 import { useTheme } from '../context/ThemeContext';
 import './BarcodeStudio/styles/BarcodeStudio.css';
+import useSessionState from '../hooks/useSessionState';
 
 const BarcodePrinter = () => {
     const { currentTheme } = useTheme();
 
-    // Presets State
+    // Store Info State
+    const [storeInfo, setStoreInfo] = useState({ store_name: '' });
+
+    // Presets & Layout State
     const [presets, setPresets] = useState([]);
-    const [selectedPresetId, setSelectedPresetId] = useState('');
-    const [activePreset, setActivePreset] = useState(BUILTIN_TEMPLATES[0]);
+    const [selectedPresetId, setSelectedPresetId] = useSessionState('bp_selectedPresetId', '');
+    const [activePreset, setActivePreset] = useSessionState('bp_activePreset', BUILTIN_TEMPLATES[0]);
     const [loadingPresets, setLoadingPresets] = useState(true);
+    const [panelWidth, setPanelWidth] = useSessionState('bp_panelWidth', 480);
 
     // Catalog & Queue State
     const [products, setProducts] = useState([]);
     const [barcodeScanInput, setBarcodeScanInput] = useState('');
     const [nameSearchInput, setNameSearchInput] = useState('');
-    const [queue, setQueue] = useState([]);
+    const [queue, setQueue] = useSessionState('bp_queue', []);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-
-    // Popup Preview Modal State
-    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
     // Refs
     const scanInputRef = useRef(null);
     const searchContainerRef = useRef(null);
+    const printContainerRef = useRef(null);
 
     // 1. Fetch Presets
     useEffect(() => {
@@ -39,18 +44,17 @@ const BarcodePrinter = () => {
                 const res = await axios.get('/api/barcode/presets');
                 const data = Array.isArray(res.data) ? res.data : [];
                 setPresets(data);
-                if (data.length > 0) {
+                
+                setActivePreset(prev => {
+                    if (prev && prev.id && prev.id !== BUILTIN_TEMPLATES[0].id) return prev;
                     const defaultPreset = data.find(p => p.is_default) || data[0];
-                    setSelectedPresetId(defaultPreset.id);
-                    setActivePreset(defaultPreset);
-                } else {
-                    setSelectedPresetId(BUILTIN_TEMPLATES[0].id);
-                    setActivePreset(BUILTIN_TEMPLATES[0]);
-                }
+                    if (defaultPreset) setSelectedPresetId(defaultPreset.id);
+                    return defaultPreset || BUILTIN_TEMPLATES[0];
+                });
+                
             } catch (err) {
                 console.error('Failed to load presets:', err);
-                setSelectedPresetId(BUILTIN_TEMPLATES[0].id);
-                setActivePreset(BUILTIN_TEMPLATES[0]);
+                // Fallback handled by session state
             } finally {
                 setLoadingPresets(false);
             }
@@ -64,10 +68,10 @@ const BarcodePrinter = () => {
             try {
                 let data = [];
                 try {
-                    const res = await axios.get('/api/barcode/batch-products?limit=1000');
+                    const res = await axios.get('/api/barcode/batch-products?limit=9999999');
                     data = Array.isArray(res.data) ? res.data : (res.data?.products || []);
                 } catch {
-                    const res = await axios.get('/api/products?limit=1000');
+                    const res = await axios.get('/api/products?limit=9999999');
                     data = Array.isArray(res.data) ? res.data : (res.data?.products || []);
                 }
                 setProducts(data);
@@ -77,6 +81,19 @@ const BarcodePrinter = () => {
             }
         };
         fetchProducts();
+    }, []);
+
+    // 3. Fetch Store Info
+    useEffect(() => {
+        const fetchStoreInfo = async () => {
+            try {
+                const res = await axios.get('/api/settings/store');
+                if (res.data) setStoreInfo(res.data);
+            } catch (err) {
+                console.error('Failed to load store info:', err);
+            }
+        };
+        fetchStoreInfo();
     }, []);
 
     // Auto-focus barcode scanner input on mount
@@ -142,27 +159,39 @@ const BarcodePrinter = () => {
     const handleBarcodeScan = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            const term = barcodeScanInput.trim().toLowerCase();
+            const inputValue = e.target.value || '';
+            const term = inputValue.trim().toLowerCase();
             if (!term) return;
 
             const matched = products.find(p =>
-                (p.barcode && p.barcode.toLowerCase() === term) ||
-                (p.sku && p.sku.toLowerCase() === term) ||
-                (p.name && p.name.toLowerCase() === term)
+                (p.barcode && p.barcode.trim().toLowerCase() === term) ||
+                (p.sku && p.sku.trim().toLowerCase() === term) ||
+                (p.name && p.name.trim().toLowerCase() === term)
             ) || products.find(p => p.name && p.name.toLowerCase().includes(term));
 
             if (matched) {
                 addProductToQueue(matched);
                 setBarcodeScanInput('');
             } else {
-                toast.error(`No product found for barcode: "${barcodeScanInput}"`);
+                toast.error(`No product found for barcode: "${inputValue}"`);
             }
         }
     };
 
-    // Update Quantity in Queue
+    // Update Quantity in Queue (Allows clearing field while typing)
     const updateItemQty = (productId, newQty) => {
-        const qty = Math.max(1, parseInt(newQty) || 1);
+        if (newQty === '') {
+            setQueue(prev => prev.map(item => item.id === productId ? { ...item, printQty: '' } : item));
+            return;
+        }
+        const parsed = parseInt(newQty, 10);
+        const qty = isNaN(parsed) ? '' : Math.max(1, parsed);
+        setQueue(prev => prev.map(item => item.id === productId ? { ...item, printQty: qty } : item));
+    };
+
+    // Ensure Quantity is valid >= 1 when leaving input field
+    const handleQtyBlur = (productId, currentVal) => {
+        const qty = Math.max(1, parseInt(currentVal, 10) || 1);
         setQueue(prev => prev.map(item => item.id === productId ? { ...item, printQty: qty } : item));
     };
 
@@ -193,11 +222,73 @@ const BarcodePrinter = () => {
 
     const totalLabelsCount = queue.reduce((sum, item) => sum + (parseInt(item.printQty) || 0), 0);
 
-    // Renderer Constants
+    // Renderer & Layout Constants
+    const isSheet = activePreset.paper_type === 'sheet';
     const labelW = activePreset.label_width || 50;
     const labelH = activePreset.label_height || 25;
+    const layout = activePreset.page_layout || {};
+    const cols = layout.cols || (isSheet ? 3 : 1);
+    const rows = isSheet ? (layout.rows || 8) : 1;
+    const labelsPerPage = cols * rows;
     const MM_TO_PX = 3.7795;
-    const sampleItem = queue[0] || { name: 'Sample Product', barcode: '12345678', mrp: '999', selling_price: '799', sku: 'SKU-001', category: 'General' };
+    const totalRollW = getCalculatedRollWidth(activePreset);
+
+    const sampleItem = { name: 'Sample Product', barcode: '12345678', mrp: '999', selling_price: '799', sku: 'SKU-001', category: 'General' };
+
+    // Items to render in real-time preview: queue items (expanded by printQty) or fallback sample item
+    const itemsToRender = queue.length > 0
+        ? queue.flatMap(item => Array(Math.max(1, parseInt(item.printQty) || 1)).fill(item))
+        : [sampleItem];
+
+    // Group items into pages / roll units
+    const pages = [];
+    for (let i = 0; i < itemsToRender.length; i += labelsPerPage) {
+        pages.push(itemsToRender.slice(i, i + labelsPerPage));
+    }
+
+    // Direct Instant Print Execution
+    const handlePrintNow = () => {
+        if (queue.length === 0) {
+            toast.error('Please add products to the print queue first');
+            return;
+        }
+        if (!printContainerRef.current) return;
+
+        // 1. Clean up existing mount if present
+        let printMount = document.getElementById('barcode-print-mount');
+        if (printMount) {
+            printMount.remove();
+        }
+
+        // 2. Create isolated root print container
+        printMount = document.createElement('div');
+        printMount.id = 'barcode-print-mount';
+        printMount.innerHTML = printContainerRef.current.innerHTML;
+        document.body.appendChild(printMount);
+
+        // 3. Inject print CSS
+        const styleText = getPrintPageStyle(activePreset, { dpi: 203 });
+        let styleEl = document.getElementById('barcode-print-style');
+        if (styleEl) styleEl.remove();
+        styleEl = document.createElement('style');
+        styleEl.id = 'barcode-print-style';
+        styleEl.type = 'text/css';
+        styleEl.appendChild(document.createTextNode(styleText));
+        document.head.appendChild(styleEl);
+
+        // 4. Trigger browser print
+        window.print();
+
+        // 5. Clean up temporary mount and styles
+        setTimeout(() => {
+            if (printMount && printMount.parentNode) {
+                printMount.parentNode.removeChild(printMount);
+            }
+            if (styleEl && styleEl.parentNode) {
+                styleEl.parentNode.removeChild(styleEl);
+            }
+        }, 1000);
+    };
 
     return (
         <div style={{
@@ -222,9 +313,24 @@ const BarcodePrinter = () => {
                 justifyContent: 'space-between',
                 gap: '1rem'
             }}>
-                <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
-                    Barcode Printer
-                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
+                        Barcode Printer
+                    </h1>
+                    {queue.length > 0 && (
+                        <span style={{
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            color: '#60a5fa',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(59, 130, 246, 0.3)'
+                        }}>
+                            {queue.length} Products ({totalLabelsCount} Labels)
+                        </span>
+                    )}
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <button
@@ -246,28 +352,25 @@ const BarcodePrinter = () => {
                         <Trash2 size={16} style={{ marginRight: 6 }} /> Clear Queue
                     </button>
 
+                    {/* DIRECT PRINT BUTTON */}
                     <button
                         type="button"
                         className="btn btn-primary"
-                        onClick={() => {
-                            if (queue.length === 0) {
-                                toast.error('Add at least one product to preview');
-                                return;
-                            }
-                            setIsPreviewModalOpen(true);
-                        }}
+                        onClick={handlePrintNow}
+                        disabled={queue.length === 0}
                         style={{
-                            padding: '0.5rem 1.25rem',
-                            fontSize: '0.85rem',
+                            padding: '0.55rem 1.35rem',
+                            fontSize: '0.88rem',
                             fontWeight: 700,
-                            background: queue.length === 0 ? 'var(--bg-card)' : 'var(--primary)',
-                            border: queue.length === 0 ? '1px solid var(--border)' : '1px solid var(--primary)',
+                            background: queue.length === 0 ? 'var(--bg-card)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            border: queue.length === 0 ? '1px solid var(--border-color, #334155)' : '1px solid #10b981',
                             color: queue.length === 0 ? 'var(--text-muted)' : '#ffffff',
                             cursor: queue.length === 0 ? 'not-allowed' : 'pointer',
-                            opacity: queue.length === 0 ? 0.6 : 1
+                            opacity: queue.length === 0 ? 0.6 : 1,
+                            boxShadow: queue.length === 0 ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.35)'
                         }}
                     >
-                        <Eye size={16} style={{ marginRight: 6 }} /> Preview ({totalLabelsCount})
+                        <Printer size={18} style={{ marginRight: 6 }} /> Print Barcodes ({totalLabelsCount})
                     </button>
                 </div>
             </div>
@@ -275,7 +378,7 @@ const BarcodePrinter = () => {
             {/* ── MAIN BODY ── */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 360px',
+                gridTemplateColumns: `1fr ${panelWidth}px`,
                 gap: '1.25rem',
                 flex: 1,
                 minHeight: 0
@@ -284,37 +387,7 @@ const BarcodePrinter = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minWidth: 0 }}>
                     {/* Horizontal Inputs Row */}
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                        {/* 1. Barcode Scan */}
-                        <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Barcode Scan
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <Scan size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary, #3b82f6)' }} />
-                                <input
-                                    ref={scanInputRef}
-                                    type="text"
-                                    className="prop-input"
-                                    style={{
-                                        width: '100%',
-                                        paddingLeft: '2.5rem',
-                                        height: '42px',
-                                        fontSize: '0.9rem',
-                                        background: 'var(--bg-card, #1e293b)',
-                                        border: '1px solid var(--border-color, #334155)',
-                                        color: 'var(--text-main, #f8fafc)',
-                                        borderRadius: '8px',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    placeholder="Scan barcode or press Enter..."
-                                    value={barcodeScanInput}
-                                    onChange={(e) => setBarcodeScanInput(e.target.value)}
-                                    onKeyDown={handleBarcodeScan}
-                                />
-                            </div>
-                        </div>
-
-                        {/* 2. Product Name Search */}
+                        {/* 1. Product Name Search */}
                         <div ref={searchContainerRef} style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '0.35rem', position: 'relative' }}>
                             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 Product Name Search
@@ -415,6 +488,36 @@ const BarcodePrinter = () => {
                                 </div>
                             )}
                         </div>
+
+                        {/* 2. Barcode Scan */}
+                        <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Barcode Scan
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Scan size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary, #3b82f6)' }} />
+                                <input
+                                    ref={scanInputRef}
+                                    type="text"
+                                    className="prop-input"
+                                    style={{
+                                        width: '100%',
+                                        paddingLeft: '2.5rem',
+                                        height: '42px',
+                                        fontSize: '0.9rem',
+                                        background: 'var(--bg-card, #1e293b)',
+                                        border: '1px solid var(--border-color, #334155)',
+                                        color: 'var(--text-main, #f8fafc)',
+                                        borderRadius: '8px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    placeholder="Scan barcode or press Enter..."
+                                    value={barcodeScanInput}
+                                    onChange={(e) => setBarcodeScanInput(e.target.value)}
+                                    onKeyDown={handleBarcodeScan}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Queue Table */}
@@ -500,6 +603,7 @@ const BarcodePrinter = () => {
                                                             value={item.printQty}
                                                             min="1"
                                                             onChange={(e) => updateItemQty(item.id, e.target.value)}
+                                                            onBlur={(e) => handleQtyBlur(item.id, e.target.value)}
                                                         />
                                                         <button
                                                             type="button"
@@ -544,118 +648,185 @@ const BarcodePrinter = () => {
                     </div>
                 </div>
 
-                {/* RIGHT SIDE: Quick Sticker Visual Preview (Single Label Preview) */}
+                {/* RIGHT SIDE: Realtime Template-Based Print Preview Panel */}
                 <div style={{
                     background: 'var(--bg-card, #1e293b)',
                     border: '1px solid var(--border-color, #334155)',
                     borderRadius: '12px',
                     display: 'flex',
                     flexDirection: 'column',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    minWidth: 0
                 }}>
+                    {/* Header Controls */}
                     <div style={{
-                        padding: '0.85rem 1rem',
+                        padding: '0.75rem 1rem',
                         borderBottom: '1px solid var(--border-color, #334155)',
-                        background: 'rgba(0, 0, 0, 0.15)',
+                        background: 'rgba(0, 0, 0, 0.2)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between'
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        flexWrap: 'wrap'
                     }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Layers size={16} style={{ color: 'var(--primary, #3b82f6)' }} />
-                            Single Label Visual
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Layers size={18} style={{ color: 'var(--primary, #3b82f6)' }} />
+                            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-main, #f8fafc)' }}>
+                                Realtime Preview
+                            </span>
                         </div>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 600 }}>
-                            {activePreset.name} ({labelW}×{labelH}mm)
-                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                            {/* Panel Width Slider Control */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                background: 'var(--bg-main, #0f172a)',
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-color, #334155)'
+                            }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted, #94a3b8)' }}>
+                                    Panel Width:
+                                </span>
+                                <input
+                                    type="range"
+                                    min="320"
+                                    max="900"
+                                    step="10"
+                                    value={panelWidth}
+                                    onChange={(e) => setPanelWidth(Number(e.target.value))}
+                                    style={{
+                                        width: '85px',
+                                        height: '4px',
+                                        accentColor: 'var(--primary, #3b82f6)',
+                                        cursor: 'pointer'
+                                    }}
+                                    title={`Panel Width: ${panelWidth}px`}
+                                />
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa', minWidth: '40px', textAlign: 'right' }}>
+                                    {panelWidth}px
+                                </span>
+                                <button
+                                    type="button"
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted, #94a3b8)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                                    onClick={() => setPanelWidth(480)}
+                                    title="Reset Panel Width to 480px"
+                                >
+                                    <RotateCcw size={12} />
+                                </button>
+                            </div>
+
+                            {/* Template Dropdown Selector */}
+                            <select
+                                className="prop-input"
+                                style={{
+                                    width: 'auto',
+                                    maxWidth: '220px',
+                                    padding: '0.35rem 0.65rem',
+                                    fontSize: '0.8rem',
+                                    background: 'var(--bg-main, #0f172a)',
+                                    borderColor: 'var(--primary, #3b82f6)',
+                                    color: '#60a5fa',
+                                    fontWeight: 700,
+                                    borderRadius: '6px',
+                                    cursor: 'pointer'
+                                }}
+                                value={selectedPresetId}
+                                onChange={(e) => handlePresetChange(e.target.value)}
+                            >
+                                {allPresetsList.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        📋 {p.name} ({p.label_width}×{p.label_height}mm)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
-                    <div style={{
+                    {/* Canvas Scrollable Container */}
+                    <div className="custom-scrollbar" style={{
                         flex: 1,
-                        padding: '1.5rem',
+                        padding: '1.25rem',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'rgba(0, 0, 0, 0.25)'
+                        background: '#090d16',
+                        overflowY: 'auto',
+                        maxHeight: 'calc(100vh - 200px)'
                     }}>
-                        {/* Single Sticker Card Rendering */}
-                        <div style={{
-                            width: `${labelW * MM_TO_PX}px`,
-                            height: `${labelH * MM_TO_PX}px`,
-                            position: 'relative',
-                            background: '#ffffff',
-                            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.5)',
-                            borderRadius: '4px',
-                            overflow: 'hidden',
-                            border: '1px solid #cbd5e1'
-                        }}>
-                            {(activePreset.canvas_data || []).map((el, idx) => {
-                                const val = el.text
-                                    ? el.text
-                                        .replace(/\{\{product_name\}\}/g, sampleItem.name || '')
-                                        .replace(/\{\{barcode\}\}/g, sampleItem.barcode || sampleItem.sku || '')
-                                        .replace(/\{\{mrp\}\}/g, sampleItem.mrp || sampleItem.selling_price || sampleItem.price || '')
-                                        .replace(/\{\{selling_price\}\}/g, sampleItem.selling_price || sampleItem.price || sampleItem.mrp || '')
-                                        .replace(/\{\{sku\}\}/g, sampleItem.sku || '')
-                                        .replace(/\{\{brand\}\}/g, sampleItem.brand || '')
-                                        .replace(/\{\{category\}\}/g, sampleItem.category || '')
-                                        .replace(/\{\{shop_name\}\}/g, 'SALESCOPE POS')
-                                    : '';
+                        <div ref={printContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center', width: '100%' }}>
+                            {pages.map((pageItems, pageIdx) => (
+                                <div
+                                    key={pageIdx}
+                                    className="print-page-unit"
+                                    style={{
+                                        width: isSheet ? '210mm' : `${totalRollW}mm`,
+                                        height: isSheet ? '297mm' : `${labelH}mm`,
+                                        background: '#ffffff',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                                        paddingTop: `${layout.marginTop || (isSheet ? 10 : 0)}mm`,
+                                        paddingLeft: `${layout.marginLeft || (isSheet ? 10 : 0)}mm`,
+                                        paddingRight: `${layout.marginRight || 0}mm`,
+                                        paddingBottom: `${layout.marginBottom || 0}mm`,
+                                        boxSizing: 'border-box',
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        gap: `${layout.gapV || 0}mm ${layout.gapH || 0}mm`,
+                                        position: 'relative',
+                                        borderRadius: '2px',
+                                        margin: '0 auto'
+                                    }}
+                                >
+                                    {pageItems.map((item, labelIdx) => {
+                                        const productData = { product: item, store: storeInfo };
+                                        const colIndex = labelIdx % cols;
+                                        let extraX = 0;
+                                        let extraY = 0;
 
-                                return (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${(el.x || 0) * MM_TO_PX}px`,
-                                            top: `${(el.y || 0) * MM_TO_PX}px`,
-                                            width: `${(el.width || 10) * MM_TO_PX}px`,
-                                            height: `${(el.height || 5) * MM_TO_PX}px`,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
-                                            fontSize: `${el.fontSize || 9}pt`,
-                                            fontWeight: el.fontWeight || 'bold',
-                                            color: el.color || '#000000',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            boxSizing: 'border-box'
-                                        }}
-                                    >
-                                        {el.type === 'barcode' ? (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                                <div style={{ background: '#000', width: '90%', height: '70%', borderRadius: '1px' }} />
-                                                {el.showText !== false && (
-                                                    <span style={{ fontSize: '7pt', color: '#000', marginTop: '1px' }}>{sampleItem.barcode || sampleItem.sku || '12345678'}</span>
-                                                )}
+                                        if (colIndex === 1) {
+                                            extraX = layout.col2OffsetX || 0;
+                                            extraY = layout.col2OffsetY || 0;
+                                        } else if (colIndex === 2) {
+                                            extraX = layout.col3OffsetX || 0;
+                                            extraY = layout.col3OffsetY || 0;
+                                        }
+
+                                        return (
+                                            <div
+                                                key={labelIdx}
+                                                style={{
+                                                    width: `${labelW}mm`,
+                                                    height: `${labelH}mm`,
+                                                    position: 'relative',
+                                                    left: extraX ? `${extraX}mm` : '0mm',
+                                                    top: extraY ? `${extraY}mm` : '0mm',
+                                                    background: '#ffffff',
+                                                    borderRadius: activePreset.corner_radius ? `${activePreset.corner_radius}mm` : 0,
+                                                    overflow: 'hidden',
+                                                    boxSizing: 'border-box'
+                                                }}
+                                            >
+                                                {(activePreset.canvas_data || []).map((el) => {
+                                                    if (!isElementVisible(el, productData)) return null;
+                                                    return (
+                                                        <LabelElementRenderer
+                                                            key={el.id}
+                                                            element={el}
+                                                            productData={productData}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
-                                        ) : (
-                                            val
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', marginTop: '1rem', textAlign: 'center' }}>
-                            Quick sticker layout preview.<br />Click <strong>Preview</strong> in header for full print layout & template selection.
+                                        );
+                                    })}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* ── POPUP LIVE PRINT PREVIEW MODAL ── */}
-            <LivePrintPreviewModal
-                isOpen={isPreviewModalOpen}
-                onClose={() => setIsPreviewModalOpen(false)}
-                preset={activePreset}
-                presets={allPresetsList}
-                onSelectPreset={(p) => handlePresetChange(p.id)}
-                printerProfile={{ dpi: 203 }}
-                queue={queue}
-                storeInfo={{ shop_name: 'SALESCOPE POS' }}
-            />
         </div>
     );
 };

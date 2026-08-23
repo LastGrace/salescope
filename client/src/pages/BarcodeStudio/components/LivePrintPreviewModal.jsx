@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { X, Printer, Download, Eye, ZoomIn, ZoomOut } from 'lucide-react';
-import { resolvePlaceholders, generateBarcodeDataUrl, isElementVisible } from '../utils/barcodeRenderer';
-import { exportAsPDF, exportAsImage, getPrintPageStyle } from '../utils/printEngine';
+import { X, Printer, Download, Eye } from 'lucide-react';
+import { isElementVisible } from '../utils/barcodeRenderer';
+import { exportAsPDF, getPrintPageStyle } from '../utils/printEngine';
+import LabelElementRenderer from './LabelElementRenderer';
 
 const LivePrintPreviewModal = ({
     isOpen,
@@ -77,8 +78,6 @@ const LivePrintPreviewModal = ({
         }, 1000);
     };
 
-    const MM_TO_PX = 3.7795;
-
     return (
         <div className="studio-modal-overlay" style={{
             position: 'fixed',
@@ -143,9 +142,10 @@ const LivePrintPreviewModal = ({
                                     height: isSheet ? '297mm' : `${labelH}mm`,
                                     background: '#ffffff',
                                     boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                                    paddingTop: isSheet ? `${layout.marginTop || 10}mm` : 0,
+                                    paddingTop: `${layout.marginTop || (isSheet ? 10 : 0)}mm`,
                                     paddingLeft: `${layout.marginLeft || (isSheet ? 10 : 0)}mm`,
                                     paddingRight: `${layout.marginRight || 0}mm`,
+                                    paddingBottom: `${layout.marginBottom || 0}mm`,
                                     boxSizing: 'border-box',
                                     display: 'flex',
                                     flexWrap: 'wrap',
@@ -177,135 +177,19 @@ const LivePrintPreviewModal = ({
                                                 left: extraX ? `${extraX}mm` : '0mm',
                                                 top: extraY ? `${extraY}mm` : '0mm',
                                                 background: '#ffffff',
+                                                borderRadius: preset.corner_radius ? `${preset.corner_radius}mm` : 0,
                                                 overflow: 'hidden',
                                                 boxSizing: 'border-box'
                                             }}
                                         >
                                             {(preset.canvas_data || []).map((el) => {
                                                 if (!isElementVisible(el, productData)) return null;
-
-                                                const xPx = el.x * MM_TO_PX;
-                                                const yPx = el.y * MM_TO_PX;
-                                                const wPx = el.width * MM_TO_PX;
-                                                const hPx = el.height * MM_TO_PX;
-                                                const resolvedText = resolvePlaceholders(el.text || '', productData);
-
                                                 return (
-                                                    <div
+                                                    <LabelElementRenderer
                                                         key={el.id}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            left: `${xPx}px`,
-                                                            top: `${yPx}px`,
-                                                            width: `${wPx}px`,
-                                                            height: `${hPx}px`,
-                                                            transform: `rotate(${el.rotation || 0}deg)`,
-                                                            zIndex: el.zIndex || 1,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start')
-                                                        }}
-                                                    >
-                                                        {el.type === 'text' && (
-                                                            <div style={{
-                                                                width: el.autoWidth ? 'auto' : '100%',
-                                                                minWidth: el.autoWidth ? 'max-content' : '100%',
-                                                                height: '100%',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
-                                                                fontFamily: el.fontFamily || 'sans-serif',
-                                                                fontSize: `${el.fontSize || 10}pt`,
-                                                                fontWeight: el.fontWeight || 'bold',
-                                                                fontStyle: el.fontStyle || 'normal',
-                                                                textDecoration: el.textDecoration || 'none',
-                                                                color: el.color || '#000000',
-                                                                letterSpacing: `${el.letterSpacing || 0}px`,
-                                                                lineHeight: el.lineHeight || 1.1,
-                                                                whiteSpace: 'nowrap',
-                                                                overflow: el.autoWidth ? 'visible' : 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#000000'}` : 'none',
-                                                                borderRadius: `${el.borderRadius || 0}px`,
-                                                                padding: el.padding ? `${el.padding * MM_TO_PX}px` : 0,
-                                                                boxSizing: 'border-box'
-                                                            }}>
-                                                                {resolvedText}
-                                                            </div>
-                                                        )}
-
-                                                        {/* BARCODE ELEMENT */}
-                                                        {el.type === 'barcode' && (
-                                                            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-                                                                <img
-                                                                    src={generateBarcodeDataUrl(resolvedText, el.format || 'code128', {
-                                                                        showText: false,
-                                                                        barHeight: el.barHeight || 12,
-                                                                        color: el.color || '#000000',
-                                                                        scale: 4
-                                                                    })}
-                                                                    alt="bc"
-                                                                    style={{ width: '100%', flex: 1, maxHeight: `${el.barHeight || 12}mm`, objectFit: 'contain' }}
-                                                                />
-                                                                {el.showText !== false && (
-                                                                    <div
-                                                                        style={{
-                                                                            marginTop: `${el.textMargin ?? 2}pt`,
-                                                                            fontSize: `${el.textSize || 10}pt`,
-                                                                            fontWeight: el.textWeight === 'black' ? 900 : el.textWeight === 'extrabold' ? 800 : el.textWeight === 'semibold' ? 600 : el.textWeight === 'medium' ? 500 : el.textWeight === 'normal' ? 400 : 700,
-                                                                            fontFamily: el.textFont === 'OCR-B' ? 'monospace, "Courier New", sans-serif' : el.textFont === 'Courier' ? 'monospace' : el.textFont || 'sans-serif',
-                                                                            color: el.color || '#000000',
-                                                                            textAlign: 'center',
-                                                                            whiteSpace: 'nowrap',
-                                                                            lineHeight: 1.1,
-                                                                            letterSpacing: '0.5px',
-                                                                            width: '100%',
-                                                                            overflow: 'hidden',
-                                                                            textOverflow: 'ellipsis'
-                                                                        }}
-                                                                    >
-                                                                        {resolvedText || '123456789'}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-
-                                                        {el.type === 'qrcode' && (
-                                                            <img
-                                                                src={generateBarcodeDataUrl(resolvedText, 'qrcode', { scale: 4 })}
-                                                                alt="qr"
-                                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                            />
-                                                        )}
-
-                                                        {el.type === 'rectangle' && (
-                                                            <div style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                background: el.background || 'transparent',
-                                                                border: `${el.borderWidth || 1}px solid ${el.borderColor || '#000000'}`,
-                                                                borderRadius: `${el.borderRadius || 0}px`
-                                                            }} />
-                                                        )}
-
-                                                        {el.type === 'circle' && (
-                                                            <div style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                background: el.background || 'transparent',
-                                                                border: `${el.borderWidth || 1}px solid ${el.borderColor || '#000000'}`,
-                                                                borderRadius: '50%'
-                                                            }} />
-                                                        )}
-
-                                                        {el.type === 'image' && (
-                                                            <img
-                                                                src={el.src || '/Salescope.png'}
-                                                                alt="img"
-                                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                            />
-                                                        )}
-                                                    </div>
+                                                        element={el}
+                                                        productData={productData}
+                                                    />
                                                 );
                                             })}
                                         </div>

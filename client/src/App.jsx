@@ -53,9 +53,10 @@ const App = () => {
 
   const [licenseStatus, setLicenseStatus] = React.useState({ status: 'checking', reason: '' });
 
-  const checkLicense = React.useCallback(async () => {
+  const checkLicense = React.useCallback(async (force = false) => {
     try {
-      const res = await fetch(`/api/license/status?_t=${Date.now()}`, { cache: 'no-store' });
+      const url = force ? `/api/license/status?forceSync=true&_t=${Date.now()}` : `/api/license/status?_t=${Date.now()}`;
+      const res = await fetch(url, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setLicenseStatus(data);
@@ -69,6 +70,15 @@ const App = () => {
 
   React.useEffect(() => {
     checkLicense();
+    
+    // Periodic check every 30 minutes that actively forces a ping to the online Render licensing server.
+    // This allows the UI to reflect changes (like admin revocations) strictly live without blocking startup.
+    const thirtyMinutes = 30 * 60 * 1000;
+    const interval = setInterval(() => {
+      checkLicense(true);
+    }, thirtyMinutes);
+
+    return () => clearInterval(interval);
   }, [checkLicense]);
 
   // Global handler to prevent scroll wheel from changing number input values
