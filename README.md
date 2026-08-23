@@ -249,11 +249,6 @@ salescope-pos/
 │   ├── services/               # Core business services (WhatsApp, Licensing, Drive, etc.)
 │   └── migrations/             # Timestamped incremental database migration files
 │
-├── lic-server/                 # Dedicated Licensing Server & Admin Portal (Submodule)
-│   ├── backend/                # Express & Prisma licensing engine
-│   ├── frontend/               # React & Tailwind license admin portal
-│   └── docker-compose.yml      # Containerized deployment for licensing server
-│
 └── scripts/                    # Developer tooling & build automation
     ├── keygen.js               # CLI tool to generate RSA-2048 keypairs & sign licenses
     ├── obfuscate-dist.js       # Production build & JavaScript obfuscation pipeline

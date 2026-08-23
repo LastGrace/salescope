@@ -42,6 +42,7 @@ sqlite.db
 local.db
 
 # SaleScope Local and Heavy Files
+lic-server/
 server/chromium/
 server/.wwebjs_auth/
 server/backups/

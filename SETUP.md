@@ -199,8 +199,8 @@ flowchart LR
    ```
 3. Copy the generated license key from terminal output, paste it into the **License Key** field on the `/activation` page, and click **Activate Software**.
 
-#### Option B: Dedicated Licensing Server (`lic-server`)
-If you host the included `lic-server` submodule on Render / Docker, create the customer machine license in the admin portal and activate directly over the internet.
+#### Option B: Remote Cloud Licensing Server
+If you host a remote licensing API server (e.g., on Render / Cloud), manage customer licenses from your admin portal and activate directly over the internet.
 
 ---
 
